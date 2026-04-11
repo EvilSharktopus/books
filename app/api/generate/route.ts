@@ -3,6 +3,8 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { generateQuestions, SourceFile } from "@/lib/claude";
 import { loadDataFile } from "@/lib/loadData";
 
+export const maxDuration = 60; // seconds — requires Vercel Pro; on Hobby this is capped at 10s
+
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
