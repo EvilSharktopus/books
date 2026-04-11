@@ -1,10 +1,6 @@
 import { readFileSync, existsSync } from "fs";
 import path from "path";
-import * as pdfParseModule from "pdf-parse";
-// pdf-parse exports differently depending on bundler; handle both
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const pdfParse: (buf: Buffer) => Promise<{ text: string }> =
-  (pdfParseModule as any).default ?? (pdfParseModule as any);
+import { PDFParse } from "pdf-parse";
 
 export async function loadDataFile(relativePath: string): Promise<string> {
   const basePath = path.join(process.cwd(), "data", relativePath);
@@ -18,8 +14,9 @@ export async function loadDataFile(relativePath: string): Promise<string> {
   const pdfPath = basePath.replace(/\.md$/, ".pdf");
   if (existsSync(pdfPath)) {
     const buffer = readFileSync(pdfPath);
-    const parsed = await pdfParse(buffer);
-    return parsed.text;
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    return result.text;
   }
 
   // Try .txt variant
