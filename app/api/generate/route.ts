@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import path from "path";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { generateQuestions, SourceFile } from "@/lib/claude";
+import { loadDataFile } from "@/lib/loadData";
 
 const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -19,11 +18,6 @@ function isSupportedMediaType(type: string): type is SupportedMediaType {
     SUPPORTED_IMAGE_TYPES.includes(type as SupportedImageType) ||
     type === "application/pdf"
   );
-}
-
-function loadDataFile(relativePath: string): string {
-  const filePath = path.join(process.cwd(), "data", relativePath);
-  return readFileSync(filePath, "utf-8");
 }
 
 export async function POST(req: NextRequest) {
@@ -114,8 +108,8 @@ export async function POST(req: NextRequest) {
   let posContent: string;
   let examFormatContent: string;
   try {
-    posContent = loadDataFile(`pos/${course}.md`);
-    examFormatContent = loadDataFile("examples/exam-format.md");
+    posContent = await loadDataFile(`pos/${course}.md`);
+    examFormatContent = await loadDataFile("examples/exam-format.md");
   } catch {
     return NextResponse.json(
       {
