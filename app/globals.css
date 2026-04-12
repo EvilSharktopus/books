@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.bg-textured {
+  background-color: #1e1b4b;
+  background-image:
+    radial-gradient(ellipse at 15% 15%, rgba(99, 102, 241, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(15, 23, 42, 0.9) 0%, transparent 55%),
+    radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: auto, auto, 28px 28px;
+}
