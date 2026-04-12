@@ -58,8 +58,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-textured">
       {/* Header */}
-      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10 px-4 sm:px-6 py-4">
-        <div className="max-w-3xl mx-auto">
+      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10 py-4">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <h1 className="text-xl font-bold text-white">
             Alberta Social Studies
             <span className="text-indigo-300 ml-2">Question Generator</span>
