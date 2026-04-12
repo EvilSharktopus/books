@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
 
   const course = formData.get("course") as string | null;
   const questionCountRaw = formData.get("questionCount") as string | null;
+  const guidance = (formData.get("guidance") as string | null) ?? "";
 
   if (!course || !questionCountRaw) {
     return NextResponse.json(
@@ -129,6 +130,7 @@ export async function POST(req: NextRequest) {
       questionCount,
       posContent,
       examFormatContent,
+      guidance,
     });
 
     return NextResponse.json(

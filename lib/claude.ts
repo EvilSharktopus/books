@@ -16,6 +16,7 @@ export type GenerateRequest = {
   questionCount: number;
   posContent: string;
   examFormatContent: string;
+  guidance: string;
 };
 
 export type GeneratedQuestions = {
@@ -25,7 +26,7 @@ export type GeneratedQuestions = {
 export async function generateQuestions(
   req: GenerateRequest
 ): Promise<GeneratedQuestions> {
-  const { sources, course, questionCount, posContent, examFormatContent } = req;
+  const { sources, course, questionCount, posContent, examFormatContent, guidance } = req;
 
   const sourceDescriptions = sources
     .map((s) => `Source ${s.label}`)
@@ -110,7 +111,7 @@ Requirements:
 - Begin with a question set header showing course, total marks
 - Number questions sequentially
 - For cross-source questions, explicitly reference which sources the student should use
-
+${guidance.trim() ? `\nAdditional instructions from the teacher:\n${guidance.trim()}` : ""}
 Output the complete question set in clean markdown, ready to copy into a Word document.`,
   });
 

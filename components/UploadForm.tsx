@@ -6,6 +6,7 @@ export type FormValues = {
   sources: File[];
   course: string;
   questionCount: number;
+  guidance: string;
 };
 
 type SourceSlot = {
@@ -109,6 +110,7 @@ export default function UploadForm({ onSubmit, isLoading }: Props) {
   ]);
   const [course, setCourse] = useState("30-1");
   const [questionCount, setQuestionCount] = useState(5);
+  const [guidance, setGuidance] = useState("");
 
   function setFile(label: "A" | "B" | "C", file: File | null) {
     setSlots((prev) =>
@@ -120,7 +122,7 @@ export default function UploadForm({ onSubmit, isLoading }: Props) {
     e.preventDefault();
     const files = slots.filter((s) => s.file !== null).map((s) => s.file!);
     if (files.length === 0) return;
-    onSubmit({ sources: files, course, questionCount });
+    onSubmit({ sources: files, course, questionCount, guidance });
   }
 
   const hasSourceA = slots[0].file !== null;
@@ -192,6 +194,22 @@ export default function UploadForm({ onSubmit, isLoading }: Props) {
             <span>20</span>
           </div>
         </div>
+      </div>
+
+      {/* Guidance */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="guidance" className="text-sm font-semibold text-gray-700">
+          Additional guidance{" "}
+          <span className="font-normal text-gray-500">(optional)</span>
+        </label>
+        <textarea
+          id="guidance"
+          value={guidance}
+          onChange={(e) => setGuidance(e.target.value)}
+          placeholder="e.g. Focus on Related Issue 3. Include one question about nationalism. Avoid questions about economics."
+          rows={3}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-gray-400"
+        />
       </div>
 
       {/* Submit */}

@@ -17,6 +17,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("course", values.course);
       formData.append("questionCount", String(values.questionCount));
+      formData.append("guidance", values.guidance);
 
       const labels = ["A", "B", "C"] as const;
       values.sources.forEach((file, i) => {
