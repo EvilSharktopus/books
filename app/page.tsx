@@ -22,8 +22,12 @@ export default function Home() {
       formData.append("guidance", values.guidance);
 
       const labels = ["A", "B", "C"] as const;
-      values.sources.forEach((file, i) => {
-        formData.append(`source${labels[i]}`, file);
+      values.sources.forEach((entry, i) => {
+        if (entry.type === "file") {
+          formData.append(`source${labels[i]}`, entry.file);
+        } else {
+          formData.append(`source${labels[i]}Text`, entry.text);
+        }
       });
 
       const res = await fetch("/api/generate", {

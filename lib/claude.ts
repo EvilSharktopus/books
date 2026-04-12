@@ -4,11 +4,18 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export type SourceFile = {
-  label: string; // "A", "B", "C"
-  mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "application/pdf";
-  data: string; // base64-encoded
-};
+export type SourceFile =
+  | {
+      label: string;
+      type: "file";
+      mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "application/pdf";
+      data: string; // base64-encoded
+    }
+  | {
+      label: string;
+      type: "text";
+      content: string;
+    };
 
 export type GenerateRequest = {
   sources: SourceFile[];
@@ -72,14 +79,16 @@ ${posContent}
 
   const userContent: Anthropic.MessageParam["content"] = [];
 
-  // Add source images/PDFs
+  // Add sources (images, PDFs, or plain text)
   for (const source of sources) {
     userContent.push({
       type: "text",
       text: `The following is Source ${source.label}:`,
     });
 
-    if (source.mediaType === "application/pdf") {
+    if (source.type === "text") {
+      userContent.push({ type: "text", text: source.content });
+    } else if (source.mediaType === "application/pdf") {
       userContent.push({
         type: "document",
         source: {

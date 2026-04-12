@@ -73,11 +73,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Collect uploaded source files (sourceA, sourceB, sourceC)
+  // Collect sources (file uploads or plain text)
   const sourceLabels = ["A", "B", "C"] as const;
   const sources: SourceFile[] = [];
 
   for (const label of sourceLabels) {
+    const text = formData.get(`source${label}Text`) as string | null;
+    if (text && text.trim()) {
+      sources.push({ label, type: "text", content: text.trim() });
+      continue;
+    }
+
     const file = formData.get(`source${label}`) as File | null;
     if (!file || file.size === 0) continue;
 
@@ -92,17 +98,12 @@ export async function POST(req: NextRequest) {
 
     const buffer = await file.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
-
-    sources.push({
-      label,
-      mediaType: file.type as SupportedMediaType,
-      data: base64,
-    });
+    sources.push({ label, type: "file", mediaType: file.type as SupportedMediaType, data: base64 });
   }
 
   if (sources.length === 0) {
     return NextResponse.json(
-      { error: "At least one source file is required." },
+      { error: "At least one source is required." },
       { status: 400 }
     );
   }
