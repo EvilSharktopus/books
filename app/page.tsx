@@ -92,6 +92,7 @@ export default function Home() {
           src="/logo.png"
           alt="McRae Social Studies"
           className="h-20 w-20 object-contain opacity-30"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
         />
         <p className="text-xs text-white/20">
           Built for Alberta teachers · Questions aligned to Alberta Education Program of Studies
