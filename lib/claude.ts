@@ -43,10 +43,11 @@ ${examFormatContent}
 ${posContent}
 
 ## Question Writing Principles
-1. **Bloom's Taxonomy distribution**: Spread questions across cognitive levels:
-   - ~20% Remember/Understand (recall, identify, define)
-   - ~50% Apply/Analyze (interpret, compare, explain cause/effect, identify perspective)
-   - ~30% Evaluate/Create (judge, argue, synthesize across sources, construct a position)
+1. **Bloom's Taxonomy — escalating difficulty**: Questions must increase in cognitive demand from first to last:
+   - Begin with Remember/Understand (recall, identify, define) — easiest
+   - Progress through Apply/Analyze (interpret, compare, explain cause/effect, identify perspective)
+   - End with Evaluate/Create (judge, argue, synthesize across sources, construct a position) — hardest
+   - No question should be at a lower Bloom's level than the one before it
 
 2. **Multiple Choice quality rules**:
    - All four options (A, B, C, D) are plausible
