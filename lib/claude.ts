@@ -105,8 +105,7 @@ ${posContent}
 
 Requirements:
 - Generate ${questionCount} questions total
-- Include a mix of Multiple Choice and at least 1 Written Response if questionCount >= 5
-- If questionCount < 4, use Multiple Choice only
+- All questions must be Multiple Choice (4 options: A, B, C, D) — do NOT include Written Response or Part B questions
 - Follow the formatting guide exactly (headers, source labels, Bloom's tags, PoS citations, mark allocation)
 - Begin with a question set header showing course, total marks
 - Number questions sequentially
