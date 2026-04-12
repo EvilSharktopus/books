@@ -50,13 +50,13 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gradient-to-br from-sky-100 via-indigo-50 to-violet-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-white/60 px-4 sm:px-6 py-4 shadow-sm">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-xl font-bold text-gray-900">
             Alberta Social Studies
-            <span className="text-blue-600 ml-2">Question Generator</span>
+            <span className="text-indigo-600 ml-2">Question Generator</span>
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Upload a source, choose your course, and generate curriculum-aligned exam questions.
@@ -65,9 +65,9 @@ export default function Home() {
       </header>
 
       {/* Body */}
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         {/* Rate limit notice */}
-        <div className="mb-6 text-xs text-gray-400 bg-gray-100 rounded-lg px-4 py-2">
+        <div className="mb-6 text-xs text-indigo-400/80 bg-white/60 rounded-lg px-4 py-2 text-center">
           Free to use · 5 question sets per day per user · Powered by Claude AI
         </div>
 
@@ -80,14 +80,14 @@ export default function Home() {
         {questions ? (
           <QuestionOutput markdown={questions} onReset={handleReset} />
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-white shadow-md p-5 sm:p-6">
             <UploadForm onSubmit={handleSubmit} isLoading={isLoading} />
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <footer className="mt-16 py-6 text-center text-xs text-gray-400 border-t border-gray-100">
+      <footer className="mt-16 py-6 text-center text-xs text-indigo-400/70 border-t border-white/40">
         Built for Alberta teachers · Questions aligned to Alberta Education Program of Studies
       </footer>
     </main>

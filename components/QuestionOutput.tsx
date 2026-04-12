@@ -188,7 +188,7 @@ export default function QuestionOutput({ markdown, onReset }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {/* Actions */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <button
           onClick={handleDownload}
           disabled={downloading}
@@ -230,11 +230,16 @@ export default function QuestionOutput({ markdown, onReset }: Props) {
       </div>
 
       {/* Rendered output */}
-      <div className="border border-gray-200 rounded-xl bg-white p-6 shadow-sm overflow-auto max-h-[70vh]">
+      <div className="border border-gray-200 rounded-xl bg-white p-4 sm:p-6 shadow-sm overflow-auto max-h-[70vh]">
         <div className="prose prose-sm max-w-none">
           {renderMarkdown(markdown)}
         </div>
       </div>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-gray-400 italic text-center px-2">
+        These questions are a starting point only — always review for oversimplifications, misunderstandings, and errors before use.
+      </p>
     </div>
   );
 }
