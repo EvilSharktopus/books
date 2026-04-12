@@ -77,6 +77,7 @@ ${posContent}
    - Stems are complete questions, not sentence fragments
    - Distractors reflect common student misconceptions, not random wrong answers
    - Distractors are parallel in structure and length to the correct answer
+   - **Correct answer position**: Distribute correct answers across A, B, C, and D as evenly as possible across the question set. Do NOT cluster correct answers at B or C. Actively vary the position of the correct answer for each question.
 
 3. **Source integration**:
    - Single-source questions: "According to Source A…" or "The perspective in Source B best represents…"
