@@ -114,7 +114,14 @@ export async function POST(req: NextRequest) {
   try {
     posContent = await loadDataFile(`pos/${course}.md`);
     examFormatContent = await loadDataFile("examples/exam-format.md");
-  } catch {
+    // Cap PoS content to avoid exceeding Claude's context window
+    // (~15,000 chars ≈ 3,750 tokens — enough for all outcomes without bloat)
+    if (posContent.length > 15000) {
+      posContent = posContent.slice(0, 15000) + "\n\n[Content truncated for length]";
+    }
+    console.log(`[generate] pos/${course} loaded: ${posContent.length} chars`);
+  } catch (err) {
+    console.error(`[generate] Failed to load data files for course ${course}:`, err);
     return NextResponse.json(
       {
         error: `Course "${course}" is not yet supported. Please check back later.`,
@@ -141,7 +148,7 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (err) {
-    console.error("Generation error:", err);
+    console.error("[generate] Claude API error:", err instanceof Error ? err.message : err);
     return NextResponse.json(
       {
         error:
