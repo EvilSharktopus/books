@@ -30,6 +30,15 @@ export type GeneratedQuestions = {
   raw: string; // full markdown text of question set
 };
 
+const READING_LEVELS: Record<string, string> = {
+  "10-1": "moderate to strong Grade 10 (clear language, accessible vocabulary, straightforward stems)",
+  "10-2": "moderate to weak Grade 10 (simple sentence structure, plain vocabulary, very direct stems)",
+  "20-1": "moderate to strong Grade 11 (some complexity in phrasing, developing analytical vocabulary)",
+  "20-2": "moderate to weak Grade 11 (clear and direct, avoid dense or layered phrasing)",
+  "30-1": "moderate to strong Grade 12 (sophisticated vocabulary, nuanced stems, complex analytical demands)",
+  "30-2": "moderate to weak Grade 12 (accessible Grade 12 language, avoid overly academic phrasing)",
+};
+
 export async function generateQuestions(
   req: GenerateRequest
 ): Promise<GeneratedQuestions> {
@@ -39,9 +48,14 @@ export async function generateQuestions(
     .map((s) => `Source ${s.label}`)
     .join(", ");
 
-  const systemPrompt = `You are an expert Alberta Social Studies diploma exam writer with deep knowledge of the ${course} Program of Studies and Alberta Education assessment conventions.
+  const readingLevel = READING_LEVELS[course] ?? "appropriate for the course level";
+
+  const systemPrompt = `You are an expert Alberta Social Studies exam writer with deep knowledge of the ${course} Program of Studies and Alberta Education assessment conventions.
 
 Your task is to generate high-quality, curriculum-aligned exam questions based on uploaded sources. You must follow all formatting conventions exactly.
+
+## Reading Level
+All questions and answer options must be written at a **${readingLevel}** reading level. This applies to question stems, all four options, and any source references. Do not write above or below this level.
 
 ## Formatting Rules (follow precisely)
 ${examFormatContent}
