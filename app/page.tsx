@@ -8,8 +8,10 @@ export default function Home() {
   const [questions, setQuestions] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastValues, setLastValues] = useState<FormValues | null>(null);
 
   async function handleSubmit(values: FormValues) {
+    setLastValues(values);
     setError(null);
     setIsLoading(true);
 
@@ -78,7 +80,12 @@ export default function Home() {
         )}
 
         {questions ? (
-          <QuestionOutput markdown={questions} onReset={handleReset} />
+          <QuestionOutput
+            markdown={questions}
+            onReset={handleReset}
+            onRegenerate={lastValues ? () => handleSubmit(lastValues) : undefined}
+            isRegenerating={isLoading}
+          />
         ) : (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
             <UploadForm onSubmit={handleSubmit} isLoading={isLoading} />

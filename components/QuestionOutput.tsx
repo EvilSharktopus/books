@@ -14,6 +14,8 @@ import { saveAs } from "file-saver";
 type Props = {
   markdown: string;
   onReset: () => void;
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
 };
 
 // Minimal markdown → docx paragraph converter
@@ -173,7 +175,7 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
   });
 }
 
-export default function QuestionOutput({ markdown, onReset }: Props) {
+export default function QuestionOutput({ markdown, onReset, onRegenerate, isRegenerating }: Props) {
   const [downloading, setDownloading] = useState(false);
 
   async function handleDownload() {
@@ -210,10 +212,8 @@ export default function QuestionOutput({ markdown, onReset }: Props) {
         </button>
 
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(markdown);
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors"
+          onClick={() => { navigator.clipboard.writeText(markdown); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -221,9 +221,31 @@ export default function QuestionOutput({ markdown, onReset }: Props) {
           Copy Text
         </button>
 
+        {onRegenerate && (
+          <button
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRegenerating ? (
+              <>
+                <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Regenerating…
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Regenerate
+              </>
+            )}
+          </button>
+        )}
+
         <button
           onClick={onReset}
-          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors"
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors"
         >
           New Question Set
         </button>
