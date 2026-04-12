@@ -229,6 +229,11 @@ export default function UploadForm({ onSubmit, isLoading }: Props) {
           "Generate Questions"
         )}
       </button>
+
+      {/* Disclaimer */}
+      <p className="text-xs text-gray-400 italic text-center">
+        This tool is just to provide your first steps — always check the questions for oversimplifications, misunderstandings, and flat out errors.
+      </p>
     </form>
   );
 }
