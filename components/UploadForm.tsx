@@ -149,7 +149,7 @@ function SourceSlotInput({
           onChange={(e) => onText(e.target.value)}
           placeholder="Paste or type source text here…"
           rows={4}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-gray-400"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-gray-400"
         />
       )}
     </div>
@@ -264,7 +264,7 @@ export default function UploadForm({ onSubmit, isLoading }: Props) {
           onChange={(e) => setGuidance(e.target.value)}
           placeholder="e.g. Focus on Related Issue 3. Include one question about nationalism. Avoid questions about economics."
           rows={3}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-gray-400"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder-gray-400"
         />
       </div>
 
