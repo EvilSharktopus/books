@@ -87,8 +87,15 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="mt-16 py-6 text-center text-xs text-white/30 border-t border-white/10">
-        Built for Alberta teachers · Questions aligned to Alberta Education Program of Studies
+      <footer className="mt-16 py-8 text-center border-t border-white/10 flex flex-col items-center gap-3">
+        <img
+          src="/logo.png"
+          alt="McRae Social Studies"
+          className="h-20 w-20 object-contain opacity-30"
+        />
+        <p className="text-xs text-white/20">
+          Built for Alberta teachers · Questions aligned to Alberta Education Program of Studies
+        </p>
       </footer>
     </main>
   );

@@ -237,7 +237,7 @@ export default function QuestionOutput({ markdown, onReset }: Props) {
       </div>
 
       {/* Disclaimer */}
-      <p className="text-xs text-gray-400 italic text-center px-2">
+      <p className="text-xs text-gray-500 italic text-center px-2">
         These questions are a starting point only — always review for oversimplifications, misunderstandings, and errors before use.
       </p>
     </div>
