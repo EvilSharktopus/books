@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { generateQuestions, SourceFile } from "@/lib/claude";
 import { loadDataFile } from "@/lib/loadData";
+import sharp from "sharp";
+
+const CLAUDE_MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB base64 limit
+
+async function prepareImageBuffer(buffer: Buffer<ArrayBuffer>, mediaType: string): Promise<{ buffer: Buffer<ArrayBuffer>; mediaType: string }> {
+  const base64Size = Math.ceil(buffer.length * 4 / 3);
+  if (base64Size <= CLAUDE_MAX_IMAGE_BYTES) return { buffer, mediaType };
+
+  // Resize down until it fits, outputting as JPEG
+  const resized = await sharp(buffer)
+    .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  console.log(`[generate] Resized image from ${buffer.length} to ${resized.length} bytes`);
+  return { buffer: resized as Buffer<ArrayBuffer>, mediaType: "image/jpeg" };
+}
 
 export const maxDuration = 60; // seconds — requires Vercel Pro; on Hobby this is capped at 10s
 
@@ -96,9 +113,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const buffer = await file.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    sources.push({ label, type: "file", mediaType: file.type as SupportedMediaType, data: base64 });
+    let rawBuffer = Buffer.from(await file.arrayBuffer()) as Buffer<ArrayBuffer>;
+    let finalMediaType = file.type as SupportedMediaType;
+
+    if (file.type !== "application/pdf") {
+      const prepared = await prepareImageBuffer(rawBuffer, file.type);
+      rawBuffer = prepared.buffer;
+      finalMediaType = prepared.mediaType as SupportedMediaType;
+    }
+
+    const base64 = rawBuffer.toString("base64");
+    sources.push({ label, type: "file", mediaType: finalMediaType, data: base64 });
   }
 
   if (sources.length === 0) {
