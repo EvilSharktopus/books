@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Alberta Social Studies Question Generator",
-  description:
-    "Generate curriculum-aligned Alberta Social Studies exam questions from uploaded sources.",
+  title: "Book Ratings",
+  description: "Rate the books you've read and share what you thought.",
 };
 
 export default function RootLayout({

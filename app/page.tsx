@@ -1,38 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import UploadForm, { FormValues } from "@/components/UploadForm";
-import QuestionOutput from "@/components/QuestionOutput";
+import RatingForm, { RatingValues } from "@/components/RatingForm";
 
 export default function Home() {
-  const [questions, setQuestions] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastValues, setLastValues] = useState<FormValues | null>(null);
+  const [formKey, setFormKey] = useState(0);
 
-  async function handleSubmit(values: FormValues) {
-    setLastValues(values);
+  async function handleSubmit(values: RatingValues) {
     setError(null);
     setIsLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("course", values.course);
-      formData.append("questionCount", String(values.questionCount));
-      formData.append("guidance", values.guidance);
-
-      const labels = ["A", "B", "C"] as const;
-      values.sources.forEach((entry, i) => {
-        if (entry.type === "file") {
-          formData.append(`source${labels[i]}`, entry.file);
-        } else {
-          formData.append(`source${labels[i]}Text`, entry.text);
-        }
-      });
-
-      const res = await fetch("/api/generate", {
+      const res = await fetch("/api/ratings", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
       });
 
       const data = await res.json();
@@ -42,7 +27,7 @@ export default function Home() {
         return;
       }
 
-      setQuestions(data.questions);
+      setSubmitted(true);
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -51,8 +36,9 @@ export default function Home() {
   }
 
   function handleReset() {
-    setQuestions(null);
+    setSubmitted(false);
     setError(null);
+    setFormKey((k) => k + 1);
   }
 
   return (
@@ -61,52 +47,47 @@ export default function Home() {
       <header className="bg-black/20 backdrop-blur-sm border-b border-white/10 py-4">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <h1 className="text-xl font-bold text-white">
-            Alberta Social Studies
-            <span className="text-indigo-300 ml-2">Question Generator</span>
+            Book
+            <span className="text-indigo-300 ml-2">Ratings</span>
           </h1>
           <p className="text-sm text-white/50 mt-0.5">
-            Upload a source, choose your course, and generate curriculum-aligned exam questions.
+            Rate the books you&apos;ve read and share what you thought.
           </p>
         </div>
       </header>
 
       {/* Body */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        {/* Rate limit notice */}
-        <div className="mb-6 text-xs text-indigo-200/60 bg-white/10 rounded-lg px-4 py-2 text-center">
-          Free to use · 5 question sets per day per user · Powered by Claude AI
-        </div>
-
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
             {error}
           </div>
         )}
 
-        {questions ? (
-          <QuestionOutput
-            markdown={questions}
-            onReset={handleReset}
-            onRegenerate={lastValues ? () => handleSubmit(lastValues) : undefined}
-            isRegenerating={isLoading}
-          />
+        {submitted ? (
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center flex flex-col items-center gap-4">
+            <span className="text-4xl">✅</span>
+            <h2 className="text-lg font-semibold text-gray-800">
+              Thanks — your rating has been recorded!
+            </h2>
+            <button
+              onClick={handleReset}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 underline underline-offset-2"
+            >
+              Submit another rating
+            </button>
+          </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
-            <UploadForm onSubmit={handleSubmit} isLoading={isLoading} />
+            <RatingForm key={formKey} onSubmit={handleSubmit} isLoading={isLoading} />
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <footer className="mt-16 py-8 text-center border-t border-white/10 flex flex-col items-center gap-3">
-        <img
-          src="/logo.png"
-          alt="McRae Social Studies"
-          className="h-20 w-20 object-contain opacity-30"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+      <footer className="mt-16 py-8 text-center border-t border-white/10">
         <p className="text-xs text-white/20">
-          Built for Alberta teachers · Questions aligned to Alberta Education Program of Studies
+          Every rating helps someone find their next great read.
         </p>
       </footer>
     </main>

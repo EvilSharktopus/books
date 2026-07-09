@@ -20,6 +20,9 @@
 # production
 /build
 
+# user-submitted ratings (user data, not source)
+/data/ratings.jsonl
+
 # misc
 .DS_Store
 *.pem
