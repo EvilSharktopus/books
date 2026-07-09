@@ -7,6 +7,9 @@ export interface BookResult {
   title: string;
   authors: string;
   year: string;
+  pages: string;
+  cover: string;
+  avgRating: number | null;
   source: string;
 }
 
@@ -16,6 +19,9 @@ interface GoogleVolume {
     title?: string;
     authors?: string[];
     publishedDate?: string;
+    pageCount?: number;
+    imageLinks?: { smallThumbnail?: string };
+    averageRating?: number;
   };
 }
 
@@ -24,6 +30,9 @@ interface OpenLibraryDoc {
   title?: string;
   author_name?: string[];
   first_publish_year?: number;
+  number_of_pages_median?: number;
+  cover_i?: number;
+  ratings_average?: number;
 }
 
 // Google Books primary, Open Library fallback.
@@ -44,6 +53,13 @@ async function searchBooks(
         title: b.volumeInfo?.title ?? "",
         authors: b.volumeInfo?.authors?.join(", ") ?? "",
         year: b.volumeInfo?.publishedDate?.slice(0, 4) ?? "",
+        pages: b.volumeInfo?.pageCount ? String(b.volumeInfo.pageCount) : "",
+        cover:
+          b.volumeInfo?.imageLinks?.smallThumbnail?.replace(
+            "http://",
+            "https://"
+          ) ?? "",
+        avgRating: b.volumeInfo?.averageRating ?? null,
         source: "Google Books",
       }));
     }
@@ -51,7 +67,7 @@ async function searchBooks(
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     const res = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,number_of_pages_median,cover_i,ratings_average`,
       { signal }
     );
     if (!res.ok) throw new Error("both-failed");
@@ -61,6 +77,13 @@ async function searchBooks(
       title: d.title ?? "",
       authors: d.author_name?.join(", ") ?? "",
       year: d.first_publish_year ? String(d.first_publish_year) : "",
+      pages: d.number_of_pages_median ? String(d.number_of_pages_median) : "",
+      cover: d.cover_i
+        ? `https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg`
+        : "",
+      avgRating: d.ratings_average
+        ? Math.round(d.ratings_average * 10) / 10
+        : null,
       source: "Open Library",
     }));
   }

@@ -4,25 +4,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BOOK_TYPES, RATING_SOURCES } from "@/lib/ratingSchema";
 import { useBookSearch, BookResult } from "@/components/useBookSearch";
 import { useLocalStorage } from "@/components/useLocalStorage";
+import type { BookFields } from "@/lib/books";
 
-export interface RatingValues {
-  bookTitle: string;
-  author: string;
-  authorCountry: string;
-  type: string;
-  rating: number;
-  source: string;
-  comments: string;
-}
-
-const EMPTY_VALUES: RatingValues = {
-  bookTitle: "",
-  author: "",
-  authorCountry: "",
-  type: "",
-  rating: 0,
+const EMPTY_VALUES: BookFields = {
+  title: "",
+  authors: "",
+  year: "",
+  pages: "",
+  cover: "",
+  avgRating: null,
   source: "",
-  comments: "",
+  myRating: 0,
+  notes: "",
+  cried: false,
+  type: "",
+  authorCountry: "",
 };
 
 const SOURCE_OPTIONS_KEY = "bookRatings.sourceOptions";
@@ -31,18 +27,18 @@ const INPUT_CLASSES =
   "border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400";
 
 interface RatingFormProps {
-  onSubmit: (values: RatingValues) => void;
+  onSubmit: (values: BookFields) => void;
   isLoading: boolean;
 }
 
 export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
-  const [values, setValues] = useState<RatingValues>(EMPTY_VALUES);
+  const [values, setValues] = useState<BookFields>(EMPTY_VALUES);
 
   // Book search typeahead on the title field
   const [suppressSearch, setSuppressSearch] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const { results, searching, failed } = useBookSearch(
-    values.bookTitle,
+    values.title,
     !suppressSearch
   );
   const searchWrapRef = useRef<HTMLDivElement>(null);
@@ -80,9 +76,9 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, []);
 
-  function setField<K extends keyof RatingValues>(
+  function setField<K extends keyof BookFields>(
     field: K,
-    value: RatingValues[K]
+    value: BookFields[K]
   ) {
     setValues((prev) => ({ ...prev, [field]: value }));
   }
@@ -91,8 +87,12 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
     setSuppressSearch(true);
     setValues((prev) => ({
       ...prev,
-      bookTitle: book.title,
-      author: book.authors || prev.author,
+      title: book.title,
+      authors: book.authors || prev.authors,
+      year: book.year || prev.year,
+      pages: book.pages || prev.pages,
+      cover: book.cover,
+      avgRating: book.avgRating,
     }));
     setDismissed(true);
     setTimeout(() => setSuppressSearch(false), 400);
@@ -122,14 +122,14 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
   }
 
   const canSubmit =
-    values.bookTitle.trim() !== "" &&
-    values.author.trim() !== "" &&
-    values.rating >= 1;
+    values.title.trim() !== "" &&
+    values.authors.trim() !== "" &&
+    values.myRating >= 1;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div ref={searchWrapRef} className="relative flex flex-col gap-1">
-        <label htmlFor="bookTitle" className="text-sm font-semibold text-gray-700">
+        <label htmlFor="title" className="text-sm font-semibold text-gray-700">
           Title of the book <span className="text-red-500">*</span>
           {searching && (
             <span className="ml-2 font-normal text-xs text-gray-400">
@@ -138,11 +138,11 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           )}
         </label>
         <input
-          id="bookTitle"
+          id="title"
           type="text"
-          value={values.bookTitle}
+          value={values.title}
           onChange={(e) => {
-            setField("bookTitle", e.target.value);
+            setField("title", e.target.value);
             setDismissed(false);
           }}
           onKeyDown={(e) => {
@@ -169,6 +169,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
                   <span className="block text-xs text-gray-500 truncate">
                     {book.authors}
                     {book.year && ` (${book.year})`}
+                    {book.avgRating != null && ` · avg ★${book.avgRating}`}
                   </span>
                 </button>
               </li>
@@ -184,14 +185,14 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label htmlFor="author" className="text-sm font-semibold text-gray-700">
-            Author <span className="text-red-500">*</span>
+          <label htmlFor="authors" className="text-sm font-semibold text-gray-700">
+            Author(s) <span className="text-red-500">*</span>
           </label>
           <input
-            id="author"
+            id="authors"
             type="text"
-            value={values.author}
-            onChange={(e) => setField("author", e.target.value)}
+            value={values.authors}
+            onChange={(e) => setField("authors", e.target.value)}
             maxLength={200}
             placeholder="e.g. Nana Kwame Adjei-Brenyah"
             className={INPUT_CLASSES}
@@ -215,34 +216,71 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-semibold text-gray-700">
-          Type <span className="font-normal text-gray-500">(optional)</span>
-        </span>
-        <div className="flex gap-2" role="radiogroup" aria-label="Type">
-          {BOOK_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              role="radio"
-              aria-checked={values.type === type}
-              onClick={() => setField("type", values.type === type ? "" : type)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                values.type === type
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="year" className="text-sm font-semibold text-gray-700">
+            Year <span className="font-normal text-gray-500">(optional)</span>
+          </label>
+          <input
+            id="year"
+            type="text"
+            inputMode="numeric"
+            value={values.year}
+            onChange={(e) => setField("year", e.target.value)}
+            maxLength={4}
+            placeholder="e.g. 2023"
+            className={INPUT_CLASSES}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="pages" className="text-sm font-semibold text-gray-700">
+            Pages <span className="font-normal text-gray-500">(optional)</span>
+          </label>
+          <input
+            id="pages"
+            type="text"
+            inputMode="numeric"
+            value={values.pages}
+            onChange={(e) => setField("pages", e.target.value)}
+            maxLength={5}
+            placeholder="e.g. 384"
+            className={INPUT_CLASSES}
+          />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <span className="text-sm font-semibold text-gray-700">
+            Type <span className="font-normal text-gray-500">(optional)</span>
+          </span>
+          <div className="flex gap-2" role="radiogroup" aria-label="Type">
+            {BOOK_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                role="radio"
+                aria-checked={values.type === type}
+                onClick={() => setField("type", values.type === type ? "" : type)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  values.type === type
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-semibold text-gray-700">
-          Rating <span className="text-red-500">*</span>{" "}
+          My rating <span className="text-red-500">*</span>{" "}
           <span className="font-normal text-gray-500">(1–10)</span>
+          {values.avgRating != null && (
+            <span className="ml-2 font-normal text-xs text-gray-400">
+              public avg: ★{values.avgRating}
+            </span>
+          )}
         </span>
         <div
           className="flex flex-wrap items-center gap-1.5"
@@ -254,12 +292,12 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
               key={n}
               type="button"
               role="radio"
-              aria-checked={values.rating === n}
-              onClick={() => setField("rating", n)}
+              aria-checked={values.myRating === n}
+              onClick={() => setField("myRating", n)}
               className={`w-9 h-9 rounded-lg text-sm font-semibold border transition-colors ${
-                values.rating === n
+                values.myRating === n
                   ? "bg-blue-600 border-blue-600 text-white"
-                  : n <= values.rating
+                  : n <= values.myRating
                     ? "bg-blue-100 border-blue-200 text-blue-700"
                     : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
               }`}
@@ -267,28 +305,38 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
               {n}
             </button>
           ))}
-          {values.rating > 0 && (
+          {values.myRating > 0 && (
             <span className="ml-2 text-sm text-gray-500">
-              {values.rating} / 10
+              {values.myRating} / 10
             </span>
           )}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="comments" className="text-sm font-semibold text-gray-700">
-          Comments <span className="font-normal text-gray-500">(optional)</span>
+        <label htmlFor="notes" className="text-sm font-semibold text-gray-700">
+          Notes <span className="font-normal text-gray-500">(optional)</span>
         </label>
         <textarea
-          id="comments"
-          value={values.comments}
-          onChange={(e) => setField("comments", e.target.value)}
+          id="notes"
+          value={values.notes}
+          onChange={(e) => setField("notes", e.target.value)}
           maxLength={2000}
           rows={4}
           placeholder="What did you think of it?"
           className={`${INPUT_CLASSES} resize-none`}
         />
       </div>
+
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
+        <input
+          type="checkbox"
+          checked={values.cried}
+          onChange={(e) => setField("cried", e.target.checked)}
+          className="w-4 h-4 accent-blue-600"
+        />
+        Cried while reading
+      </label>
 
       <div className="flex flex-col gap-1">
         <label htmlFor="source" className="text-sm font-semibold text-gray-700">
