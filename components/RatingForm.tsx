@@ -169,7 +169,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
                   <span className="block text-xs text-gray-500 truncate">
                     {book.authors}
                     {book.year && ` (${book.year})`}
-                    {book.avgRating != null && ` · avg ★${book.avgRating}`}
+                    {book.avgRating != null && ` · avg ★${(book.avgRating * 2).toFixed(1)}/10`}
                   </span>
                 </button>
               </li>
@@ -278,7 +278,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           <span className="font-normal text-gray-500">(1–10)</span>
           {values.avgRating != null && (
             <span className="ml-2 font-normal text-xs text-gray-400">
-              public avg: ★{values.avgRating}
+              public avg: ★{(values.avgRating * 2).toFixed(1)}/10
             </span>
           )}
         </span>
