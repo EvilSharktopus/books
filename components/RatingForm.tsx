@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { BOOK_TYPES, RATING_SOURCES } from "@/lib/ratingSchema";
 
 export interface RatingValues {
   bookTitle: string;
   author: string;
   authorCountry: string;
+  type: string;
   rating: number;
+  source: string;
   comments: string;
 }
 
@@ -14,7 +17,9 @@ const EMPTY_VALUES: RatingValues = {
   bookTitle: "",
   author: "",
   authorCountry: "",
+  type: "",
   rating: 0,
+  source: "",
   comments: "",
 };
 
@@ -50,7 +55,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <label htmlFor="bookTitle" className="text-sm font-semibold text-gray-700">
-          Book title <span className="text-red-500">*</span>
+          Title of the book <span className="text-red-500">*</span>
         </label>
         <input
           id="bookTitle"
@@ -58,7 +63,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           value={values.bookTitle}
           onChange={(e) => setField("bookTitle", e.target.value)}
           maxLength={200}
-          placeholder="e.g. The Remains of the Day"
+          placeholder="e.g. Chain-Gang All-Stars"
           className={INPUT_CLASSES}
         />
       </div>
@@ -74,7 +79,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             value={values.author}
             onChange={(e) => setField("author", e.target.value)}
             maxLength={200}
-            placeholder="e.g. Kazuo Ishiguro"
+            placeholder="e.g. Nana Kwame Adjei-Brenyah"
             className={INPUT_CLASSES}
           />
         </div>
@@ -90,7 +95,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             value={values.authorCountry}
             onChange={(e) => setField("authorCountry", e.target.value)}
             maxLength={100}
-            placeholder="e.g. United Kingdom"
+            placeholder="e.g. Canada"
             className={INPUT_CLASSES}
           />
         </div>
@@ -98,29 +103,59 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
 
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-semibold text-gray-700">
-          Overall rating <span className="text-red-500">*</span>
+          Type <span className="font-normal text-gray-500">(optional)</span>
         </span>
-        <div className="flex items-center gap-1" role="radiogroup" aria-label="Overall rating">
-          {[1, 2, 3, 4, 5].map((star) => (
+        <div className="flex gap-2" role="radiogroup" aria-label="Type">
+          {BOOK_TYPES.map((type) => (
             <button
-              key={star}
+              key={type}
               type="button"
               role="radio"
-              aria-checked={values.rating === star}
-              aria-label={`${star} star${star > 1 ? "s" : ""}`}
-              onClick={() => setField("rating", star)}
-              className={`text-3xl leading-none transition-colors ${
-                star <= values.rating
-                  ? "text-amber-400"
-                  : "text-gray-300 hover:text-amber-200"
+              aria-checked={values.type === type}
+              onClick={() => setField("type", values.type === type ? "" : type)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                values.type === type
+                  ? "bg-blue-600 border-blue-600 text-white"
+                  : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
               }`}
             >
-              ★
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-semibold text-gray-700">
+          Rating <span className="text-red-500">*</span>{" "}
+          <span className="font-normal text-gray-500">(1–10)</span>
+        </span>
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          role="radiogroup"
+          aria-label="Rating out of 10"
+        >
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={values.rating === n}
+              onClick={() => setField("rating", n)}
+              className={`w-9 h-9 rounded-lg text-sm font-semibold border transition-colors ${
+                values.rating === n
+                  ? "bg-blue-600 border-blue-600 text-white"
+                  : n <= values.rating
+                    ? "bg-blue-100 border-blue-200 text-blue-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
+              }`}
+            >
+              {n}
             </button>
           ))}
           {values.rating > 0 && (
             <span className="ml-2 text-sm text-gray-500">
-              {values.rating} / 5
+              {values.rating} / 10
             </span>
           )}
         </div>
@@ -139,6 +174,26 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           placeholder="What did you think of it?"
           className={`${INPUT_CLASSES} resize-none`}
         />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="source" className="text-sm font-semibold text-gray-700">
+          Where&apos;d you hear about it?{" "}
+          <span className="font-normal text-gray-500">(optional)</span>
+        </label>
+        <select
+          id="source"
+          value={values.source}
+          onChange={(e) => setField("source", e.target.value)}
+          className={`${INPUT_CLASSES} sm:max-w-xs`}
+        >
+          <option value="">Choose…</option>
+          {RATING_SOURCES.map((source) => (
+            <option key={source} value={source}>
+              {source}
+            </option>
+          ))}
+        </select>
       </div>
 
       <button
