@@ -2,12 +2,28 @@
 
 import { useState } from "react";
 import RatingForm, { RatingValues } from "@/components/RatingForm";
+import { useLocalStorage } from "@/components/useLocalStorage";
+
+const BG_COLOR_KEY = "bookRatings.bgColor";
+
+function isLightColor(hex: string): boolean {
+  const m = hex.match(/^#([0-9a-f]{6})$/i);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150;
+}
 
 export default function Home() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [storedBg, applyBgColor] = useLocalStorage(BG_COLOR_KEY);
+  const bgColor =
+    storedBg && /^#[0-9a-f]{6}$/i.test(storedBg) ? storedBg : null;
 
   async function handleSubmit(values: RatingValues) {
     setError(null);
@@ -41,18 +57,69 @@ export default function Home() {
     setFormKey((k) => k + 1);
   }
 
+  const light = bgColor !== null && isLightColor(bgColor);
+
   return (
-    <main className="min-h-screen bg-textured">
+    <main
+      className={`min-h-screen ${bgColor ? "" : "bg-textured"}`}
+      style={bgColor ? { background: bgColor } : undefined}
+    >
       {/* Header */}
-      <header className="bg-black/20 backdrop-blur-sm border-b border-white/10 py-4">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <h1 className="text-xl font-bold text-white">
-            Book
-            <span className="text-indigo-300 ml-2">Ratings</span>
-          </h1>
-          <p className="text-sm text-white/50 mt-0.5">
-            Rate the books you&apos;ve read and share what you thought.
-          </p>
+      <header
+        className={`backdrop-blur-sm border-b py-4 ${
+          light ? "bg-white/20 border-black/10" : "bg-black/20 border-white/10"
+        }`}
+      >
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-start justify-between gap-4">
+          <div>
+            <h1
+              className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
+            >
+              Book
+              <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
+                Ratings
+              </span>
+            </h1>
+            <p className={`text-sm mt-0.5 ${light ? "text-gray-600" : "text-white/50"}`}>
+              Rate the books you&apos;ve read and share what you thought.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 pt-1">
+            <label
+              className={`flex items-center gap-2 cursor-pointer text-xs font-medium ${
+                light ? "text-gray-700" : "text-white/60"
+              } hover:opacity-80`}
+              title="Customize background color"
+            >
+              <span
+                className={`inline-block w-5 h-5 rounded-full border ${
+                  light ? "border-black/20" : "border-white/40"
+                }`}
+                style={{
+                  background:
+                    bgColor ?? "linear-gradient(135deg, #312e81, #1e1b4b)",
+                }}
+              />
+              Background
+              <input
+                type="color"
+                value={bgColor ?? "#312e81"}
+                onChange={(e) => applyBgColor(e.target.value)}
+                className="absolute w-0 h-0 opacity-0"
+                aria-label="Customize background color"
+              />
+            </label>
+            {bgColor && (
+              <button
+                onClick={() => applyBgColor(null)}
+                className={`text-xs underline underline-offset-2 ${
+                  light ? "text-gray-600" : "text-white/50"
+                } hover:opacity-80`}
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -85,8 +152,12 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="mt-16 py-8 text-center border-t border-white/10">
-        <p className="text-xs text-white/20">
+      <footer
+        className={`mt-16 py-8 text-center border-t ${
+          light ? "border-black/10" : "border-white/10"
+        }`}
+      >
+        <p className={`text-xs ${light ? "text-gray-500/70" : "text-white/20"}`}>
           Every rating helps someone find their next great read.
         </p>
       </footer>

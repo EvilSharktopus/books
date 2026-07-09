@@ -1,12 +1,7 @@
 import { appendFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { createRateLimiter } from "@/lib/rateLimit";
-import {
-  BOOK_TYPES,
-  RATING_SOURCES,
-  RATINGS_FILE,
-  loadAllRatings,
-} from "@/lib/ratings";
+import { BOOK_TYPES, RATINGS_FILE, loadAllRatings } from "@/lib/ratings";
 
 const checkRateLimit = createRateLimiter(20);
 
@@ -22,6 +17,8 @@ const TEXT_FIELDS = {
   author: { label: "Author", required: true, maxLength: 200 },
   authorCountry: { label: "Author country", required: false, maxLength: 100 },
   comments: { label: "Comments", required: false, maxLength: 2000 },
+  // Free text (not an enum) because the form's options are user-editable.
+  source: { label: "Where'd you hear about it?", required: false, maxLength: 100 },
 } satisfies Record<string, FieldSpec>;
 
 type TextField = keyof typeof TEXT_FIELDS;
@@ -106,16 +103,6 @@ export async function POST(req: NextRequest) {
       );
     }
     record.type = body.type as string;
-  }
-
-  if (body.source !== undefined && body.source !== "") {
-    if (!RATING_SOURCES.includes(body.source as (typeof RATING_SOURCES)[number])) {
-      return NextResponse.json(
-        { error: `Source must be one of: ${RATING_SOURCES.join(", ")}.` },
-        { status: 400 }
-      );
-    }
-    record.source = body.source as string;
   }
 
   record.submittedAt = new Date().toISOString();
