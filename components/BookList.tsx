@@ -17,7 +17,11 @@ const INPUT_CLASSES =
 
 function formatDate(book: BookDoc): string {
   if (!book.dateAdded) return "";
-  return book.dateAdded.toDate().toLocaleDateString(undefined, {
+  const date = book.dateAdded.toDate();
+  // Imported books whose original review had no timestamp carry a sentinel
+  // old date so they sort last under "Date added".
+  if (date.getFullYear() < 2025) return "Pre-2025";
+  return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
