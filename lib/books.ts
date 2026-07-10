@@ -35,6 +35,7 @@ export interface BookFields {
   cried: boolean;
   type: string;
   authorCountry: string;
+  language: string;
 }
 
 export interface BookDoc extends BookFields {
@@ -89,6 +90,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       cried: (data.cried as boolean) ?? false,
       type: (data.type as string) ?? "",
       authorCountry: (data.authorCountry as string) ?? "",
+      language: (data.language as string) ?? "English",
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

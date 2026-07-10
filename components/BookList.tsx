@@ -97,6 +97,7 @@ export default function BookList({ userId }: BookListProps) {
       myRating: book.myRating,
       notes: book.notes,
       cried: book.cried,
+      language: book.language,
     });
   }
 
@@ -266,6 +267,14 @@ export default function BookList({ userId }: BookListProps) {
                             className={INPUT_CLASSES}
                           />
                           <select
+                            value={draft.language ?? "English"}
+                            onChange={(e) => setDraft((d) => ({ ...d, language: e.target.value }))}
+                            className={INPUT_CLASSES}
+                          >
+                            <option value="English">English</option>
+                            <option value="Translated">Translated</option>
+                          </select>
+                          <select
                             value={draft.myRating ?? 0}
                             onChange={(e) =>
                               setDraft((d) => ({ ...d, myRating: parseInt(e.target.value, 10) }))
@@ -325,9 +334,10 @@ export default function BookList({ userId }: BookListProps) {
                         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-500">
                           {book.pages && <div><dt className="inline font-medium">Pages: </dt><dd className="inline">{book.pages}</dd></div>}
                           {book.type && <div><dt className="inline font-medium">Type: </dt><dd className="inline">{book.type}</dd></div>}
+                          {book.language && book.language !== "English" && <div><dt className="inline font-medium">Language: </dt><dd className="inline">{book.language}</dd></div>}
                           {book.authorCountry && <div><dt className="inline font-medium">Author country: </dt><dd className="inline">{book.authorCountry}</dd></div>}
                           {book.source && <div><dt className="inline font-medium">Heard from: </dt><dd className="inline">{book.source}</dd></div>}
-                          {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{book.avgRating}</dd></div>}
+                          {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{(book.avgRating * 2).toFixed(1)}/10</dd></div>}
                           {book.cried && <div><dd className="inline">Cried while reading 💧</dd></div>}
                         </dl>
                         <div className="flex gap-2 justify-end">

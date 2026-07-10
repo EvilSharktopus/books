@@ -42,7 +42,7 @@ async function searchBooks(
 ): Promise<BookResult[]> {
   try {
     const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=6`,
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=15`,
       { signal }
     );
     if (!res.ok) throw new Error("google-fail");
@@ -67,7 +67,7 @@ async function searchBooks(
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     const res = await fetch(
-      `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=6&fields=key,title,author_name,first_publish_year,number_of_pages_median,cover_i,ratings_average`,
+      `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=15&fields=key,title,author_name,first_publish_year,number_of_pages_median,cover_i,ratings_average`,
       { signal }
     );
     if (!res.ok) throw new Error("both-failed");

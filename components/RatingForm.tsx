@@ -45,6 +45,16 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
   const dropdownOpen = results.length > 0 && !dismissed;
 
   // Editable "Where'd you hear about it?" options (persisted per browser)
+  const [hiddenFields, setHiddenFields] = useLocalStorage("bookRatings.hiddenFields");
+  const hiddenArr = useMemo<string[]>(() => {
+    if (!hiddenFields) return [];
+    try { return JSON.parse(hiddenFields); } catch { return []; }
+  }, [hiddenFields]);
+  const isHidden = (field: string) => hiddenArr.includes(field);
+  const hideField = (field: string) => setHiddenFields(JSON.stringify([...hiddenArr, field]));
+  const restoreFields = () => setHiddenFields("[]");
+
+  // Editable "Where'd you hear about it?" options (persisted per browser)
   const [storedOptions, setStoredOptions] = useLocalStorage(SOURCE_OPTIONS_KEY);
   const sourceOptions = useMemo<string[]>(() => {
     if (storedOptions) {
