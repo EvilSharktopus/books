@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import RatingForm from "@/components/RatingForm";
 import BookList from "@/components/BookList";
 import UserPicker from "@/components/UserPicker";
+import UserMenu from "@/components/UserMenu";
 import { useLocalStorage } from "@/components/useLocalStorage";
 import { AppUser, BookFields, addBook, getUser } from "@/lib/books";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -27,6 +28,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [editMode, setEditMode] = useState(false);
 
   const [storedBg, applyBgColor] = useLocalStorage(BG_COLOR_KEY);
   const bgColor =
@@ -121,88 +123,28 @@ export default function Home() {
           light ? "bg-white/20 border-black/10" : "bg-black/20 border-white/10"
         }`}
       >
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-start justify-between gap-4">
-          <div>
-            <h1
-              className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
-            >
-              Book
-              <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
-                Ratings
-              </span>
-            </h1>
-            <p className={`text-sm mt-0.5 ${light ? "text-gray-600" : "text-white/50"}`}>
-              Rate the books you&apos;ve read and share what you thought.
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0 pt-1">
-            {user && (
-              <div
-                className={`flex items-center gap-3 text-xs ${
-                  light ? "text-gray-700" : "text-white/70"
-                }`}
-              >
-                <span className="font-semibold">{user.name}</span>
-                <button
-                  onClick={() => setPickerOpen(true)}
-                  className="underline underline-offset-2 hover:opacity-80"
-                >
-                  Change user
-                </button>
-                {view === "entry" ? (
-                  <button
-                    onClick={() => switchView("list")}
-                    className="underline underline-offset-2 hover:opacity-80"
-                  >
-                    See data
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => switchView("entry")}
-                    className="underline underline-offset-2 hover:opacity-80"
-                  >
-                    + New entry
-                  </button>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <label
-                className={`flex items-center gap-2 cursor-pointer text-xs font-medium ${
-                  light ? "text-gray-700" : "text-white/60"
-                } hover:opacity-80`}
-                title="Customize background color"
-              >
-                <span
-                  className={`inline-block w-5 h-5 rounded-full border ${
-                    light ? "border-black/20" : "border-white/40"
-                  }`}
-                  style={{
-                    background:
-                      bgColor ?? "linear-gradient(135deg, #312e81, #1e1b4b)",
-                  }}
-                />
-                Background
-                <input
-                  type="color"
-                  value={bgColor ?? "#312e81"}
-                  onChange={(e) => applyBgColor(e.target.value)}
-                  className="absolute w-0 h-0 opacity-0"
-                  aria-label="Customize background color"
-                />
-              </label>
-              {bgColor && (
-                <button
-                  onClick={() => applyBgColor(null)}
-                  className={`text-xs underline underline-offset-2 ${
-                    light ? "text-gray-600" : "text-white/50"
-                  } hover:opacity-80`}
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center gap-4">
+          {user && (
+            <UserMenu
+              name={user.name}
+              light={light}
+              view={view}
+              editMode={editMode}
+              bgColor={bgColor}
+              onToggleEditMode={() => setEditMode((e) => !e)}
+              onApplyBgColor={applyBgColor}
+              onSwitchView={switchView}
+              onChangeUser={() => setPickerOpen(true)}
+            />
+          )}
+          <h1
+            className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
+          >
+            Book
+            <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
+              Ratings
+            </span>
+          </h1>
         </div>
       </header>
 
@@ -242,7 +184,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
-            <RatingForm key={formKey} onSubmit={handleSubmit} isLoading={isLoading} />
+            <RatingForm key={formKey} onSubmit={handleSubmit} isLoading={isLoading} editMode={editMode} />
           </div>
         )}
       </div>
