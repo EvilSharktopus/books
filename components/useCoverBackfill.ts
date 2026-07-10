@@ -5,7 +5,7 @@ import { BookDoc, updateBook } from "@/lib/books";
 
 // Book ids we already tried and found nothing for, so page reloads don't
 // re-query the same misses forever (persisted per browser).
-const MISS_KEY = "bookRatings.coverMisses.v2";
+const MISS_KEY = "bookRatings.coverMisses.v3";
 
 function loadMisses(): Set<string> {
   try {
