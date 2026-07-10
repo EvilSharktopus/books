@@ -19,6 +19,7 @@ const EMPTY_VALUES: BookFields = {
   cried: false,
   type: "",
   authorCountry: "",
+  language: "English",
 };
 
 const SOURCE_OPTIONS_KEY = "bookRatings.sourceOptions";
@@ -209,12 +210,41 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           />
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="authorCountry" className="text-sm font-semibold text-gray-700">
-            Author country{" "}
-            <span className="font-normal text-gray-500">(optional)</span>
-          </label>
-          <input
+        {!isHidden("language") && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-gray-700">
+              Language <span className="font-normal text-gray-500">(optional)</span>
+              <button type="button" onClick={() => hideField('language')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
+            </span>
+            <div className="flex gap-2" role="radiogroup">
+              {["English", "Translated"].map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  role="radio"
+                  aria-checked={values.language === lang}
+                  onClick={() => setField("language", lang)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    values.language === lang
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isHidden("authorCountry") && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="authorCountry" className="text-sm font-semibold text-gray-700">
+              Author country{" "}
+              <span className="font-normal text-gray-500">(optional)</span>
+              <button type="button" onClick={() => hideField('authorCountry')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
+            </label>
+            <input
             id="authorCountry"
             type="text"
             value={values.authorCountry}
@@ -224,12 +254,15 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             className={INPUT_CLASSES}
           />
         </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+        {!isHidden("year") && (
         <div className="flex flex-col gap-1">
           <label htmlFor="year" className="text-sm font-semibold text-gray-700">
             Year <span className="font-normal text-gray-500">(optional)</span>
+            <button type="button" onClick={() => hideField('year')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
           </label>
           <input
             id="year"
@@ -242,9 +275,12 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             className={INPUT_CLASSES}
           />
         </div>
+        )}
+        {!isHidden("pages") && (
         <div className="flex flex-col gap-1">
           <label htmlFor="pages" className="text-sm font-semibold text-gray-700">
             Pages <span className="font-normal text-gray-500">(optional)</span>
+            <button type="button" onClick={() => hideField('pages')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
           </label>
           <input
             id="pages"
@@ -257,9 +293,12 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             className={INPUT_CLASSES}
           />
         </div>
+        )}
+        {!isHidden("type") && (
         <div className="col-span-2 flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-gray-700">
             Type <span className="font-normal text-gray-500">(optional)</span>
+            <button type="button" onClick={() => hideField('type')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
           </span>
           <div className="flex gap-2" role="radiogroup" aria-label="Type">
             {BOOK_TYPES.map((type) => (
@@ -280,6 +319,7 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
             ))}
           </div>
         </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -323,9 +363,11 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
         </div>
       </div>
 
+      {!isHidden("notes") && (
       <div className="flex flex-col gap-1">
         <label htmlFor="notes" className="text-sm font-semibold text-gray-700">
           Notes <span className="font-normal text-gray-500">(optional)</span>
+          <button type="button" onClick={() => hideField('notes')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
         </label>
         <textarea
           id="notes"
@@ -337,7 +379,9 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           className={`${INPUT_CLASSES} resize-none`}
         />
       </div>
+      )}
 
+      {!isHidden("cried") && (
       <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
         <input
           type="checkbox"
@@ -346,12 +390,16 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           className="w-4 h-4 accent-blue-600"
         />
         Cried while reading
+        <button type="button" onClick={() => hideField('cried')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
       </label>
+      )}
 
+      {!isHidden("source") && (
       <div className="flex flex-col gap-1">
         <label htmlFor="source" className="text-sm font-semibold text-gray-700">
           Where&apos;d you hear about it?{" "}
           <span className="font-normal text-gray-500">(optional)</span>
+          <button type="button" onClick={() => hideField('source')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">✕ hide</button>
         </label>
         <div className="flex items-center gap-2">
           <select
@@ -420,6 +468,15 @@ export default function RatingForm({ onSubmit, isLoading }: RatingFormProps) {
           </div>
         )}
       </div>
+      )}
+
+      {hiddenArr.length > 0 && (
+        <div className="text-center pt-2">
+          <button type="button" onClick={restoreFields} className="text-sm font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2">
+            Restore hidden questions
+          </button>
+        </div>
+      )}
 
       <button
         type="submit"
