@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookDoc, BookFields, deleteBook, listBooks, updateBook } from "@/lib/books";
+import { useCoverBackfill } from "./useCoverBackfill";
 
 const SORTS = {
   dateAdded: "Date added",
@@ -60,6 +61,22 @@ export default function BookList({ userId }: BookListProps) {
       cancelled = true;
     };
   }, [userId]);
+
+  const onCoverFound = useCallback(
+    (bookId: string, cover: string, avgRating: number | null) => {
+      setBooks((prev) =>
+        prev
+          ? prev.map((b) =>
+              b.id === bookId
+                ? { ...b, cover, avgRating: avgRating ?? b.avgRating }
+                : b
+            )
+          : prev
+      );
+    },
+    []
+  );
+  useCoverBackfill(userId, books, onCoverFound);
 
   const visible = useMemo(() => {
     if (!books) return [];
