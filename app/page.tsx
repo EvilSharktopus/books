@@ -119,11 +119,19 @@ export default function Home() {
     >
       {/* Header */}
       <header
-        className={`backdrop-blur-sm border-b py-4 ${
+        className={`relative z-40 backdrop-blur-sm border-b py-4 ${
           light ? "bg-white/20 border-black/10" : "bg-black/20 border-white/10"
         }`}
       >
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center gap-4">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
+          <h1
+            className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
+          >
+            Book
+            <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
+              Ratings
+            </span>
+          </h1>
           {user && (
             <UserMenu
               name={user.name}
@@ -137,14 +145,6 @@ export default function Home() {
               onChangeUser={() => setPickerOpen(true)}
             />
           )}
-          <h1
-            className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
-          >
-            Book
-            <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
-              Ratings
-            </span>
-          </h1>
         </div>
       </header>
 

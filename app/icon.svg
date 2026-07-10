@@ -1,6 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-  <rect x="5" y="2" width="30" height="36" rx="4" fill="#4f46e5"/>
-  <rect x="5" y="2" width="7" height="36" rx="3.5" fill="#312e81"/>
-  <rect x="12" y="2" width="2" height="36" fill="#312e81" opacity="0.35"/>
-  <text x="24" y="27" text-anchor="middle" font-size="18" font-weight="700" font-family="Georgia, serif" fill="#ffffff">★</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#1d6a80"/>
+  <!-- open book -->
+  <g fill="#f2ead8">
+    <!-- left page -->
+    <path d="M31 30 C 24 25, 14 24, 8 26 L 8 46 C 14 44, 24 45, 31 50 Z"/>
+    <!-- right page -->
+    <path d="M33 30 C 40 25, 50 24, 56 26 L 56 46 C 50 44, 40 45, 33 50 Z"/>
+    <!-- outer covers -->
+    <path d="M6 28 L 6 48 C 13 46, 24 47, 31 52 L 33 52 C 40 47, 51 46, 58 48 L 58 28 L 56 27.4 L 56 46 C 50 44, 40 45, 32 50.5 C 24 45, 14 44, 8 46 L 8 27.4 Z"/>
+  </g>
+  <!-- star -->
+  <path d="M32 8 L 35.2 15.2 L 43 16 L 37.2 21.2 L 38.8 29 L 32 25 L 25.2 29 L 26.8 21.2 L 21 16 L 28.8 15.2 Z" fill="#f6b73c" stroke="#e09b1a" stroke-width="1"/>
 </svg>
