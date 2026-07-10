@@ -41,14 +41,32 @@ async function searchBooks(
   signal: AbortSignal
 ): Promise<BookResult[]> {
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=15`,
-      { signal }
-    );
-    if (!res.ok) throw new Error("google-fail");
-    const data: { items?: GoogleVolume[] } = await res.json();
-    if (data.items?.length) {
-      return data.items.map((b) => ({
+    // Two queries in parallel: a title-scoped one so short/common titles
+    // (e.g. "The Girls") surface first, plus a general one for queries that
+    // include the author or only partially match the title.
+    const [titleRes, generalRes] = await Promise.all([
+      fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${query}"`)}&maxResults=8`,
+        { signal }
+      ),
+      fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=15`,
+        { signal }
+      ),
+    ]);
+    if (!titleRes.ok && !generalRes.ok) throw new Error("google-fail");
+    const titleData: { items?: GoogleVolume[] } = titleRes.ok
+      ? await titleRes.json()
+      : {};
+    const generalData: { items?: GoogleVolume[] } = generalRes.ok
+      ? await generalRes.json()
+      : {};
+    const seen = new Set<string>();
+    const items = [...(titleData.items ?? []), ...(generalData.items ?? [])]
+      .filter((b) => (seen.has(b.id) ? false : (seen.add(b.id), true)))
+      .slice(0, 15);
+    if (items.length) {
+      return items.map((b) => ({
         id: b.id,
         title: b.volumeInfo?.title ?? "",
         authors: b.volumeInfo?.authors?.join(", ") ?? "",
