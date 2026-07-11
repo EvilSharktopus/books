@@ -36,6 +36,7 @@ export interface BookFields {
   type: string;
   authorCountry: string;
   language: string;
+  originalLanguage: string; // set when language is "Translated"
 }
 
 export interface BookDoc extends BookFields {
@@ -91,6 +92,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       type: (data.type as string) ?? "",
       authorCountry: (data.authorCountry as string) ?? "",
       language: (data.language as string) ?? "English",
+      originalLanguage: (data.originalLanguage as string) ?? "",
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

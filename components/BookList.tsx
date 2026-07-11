@@ -42,6 +42,27 @@ export default function BookList({ userId }: BookListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<BookFields>>({});
   const [busy, setBusy] = useState(false);
+  const [coverEditId, setCoverEditId] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState("");
+
+  async function saveCoverUrl(bookId: string) {
+    const url = coverUrl.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) return;
+    setBusy(true);
+    try {
+      await updateBook(userId, bookId, { cover: url });
+      setBooks((prev) =>
+        prev ? prev.map((b) => (b.id === bookId ? { ...b, cover: url } : b)) : prev
+      );
+      setCoverEditId(null);
+      setCoverUrl("");
+    } catch (err) {
+      console.error("[books] Failed to save cover:", err);
+      setError(err instanceof Error ? err.message : "Failed to save cover.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -364,12 +385,54 @@ export default function BookList({ userId }: BookListProps) {
                         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs text-gray-500">
                           {book.pages && <div><dt className="inline font-medium">Pages: </dt><dd className="inline">{book.pages}</dd></div>}
                           {book.type && <div><dt className="inline font-medium">Type: </dt><dd className="inline">{book.type}</dd></div>}
-                          {book.language && book.language !== "English" && <div><dt className="inline font-medium">Language: </dt><dd className="inline">{book.language}</dd></div>}
+                          {book.language && book.language !== "English" && <div><dt className="inline font-medium">Language: </dt><dd className="inline">{book.language}{book.originalLanguage && ` (from ${book.originalLanguage})`}</dd></div>}
                           {book.authorCountry && <div><dt className="inline font-medium">Author country: </dt><dd className="inline">{book.authorCountry}</dd></div>}
                           {book.source && <div><dt className="inline font-medium">Heard from: </dt><dd className="inline">{book.source}</dd></div>}
                           {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{(book.avgRating * 2).toFixed(1)}/10</dd></div>}
                           {book.cried && <div><dd className="inline">Cried while reading 💧</dd></div>}
                         </dl>
+                        {!book.cover && coverEditId !== book.id && (
+                          <button
+                            onClick={() => {
+                              setCoverEditId(book.id);
+                              setCoverUrl("");
+                            }}
+                            className="self-start text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                          >
+                            Add cover image
+                          </button>
+                        )}
+                        {coverEditId === book.id && (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="url"
+                              value={coverUrl}
+                              onChange={(e) => setCoverUrl(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  saveCoverUrl(book.id);
+                                }
+                              }}
+                              placeholder="Paste image URL…"
+                              autoFocus
+                              className={`${INPUT_CLASSES} flex-1 min-w-0`}
+                            />
+                            <button
+                              onClick={() => saveCoverUrl(book.id)}
+                              disabled={busy || !/^https?:\/\/\S+$/i.test(coverUrl.trim())}
+                              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setCoverEditId(null)}
+                              className="px-2 py-1.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => startEdit(book)}

@@ -20,9 +20,12 @@ const EMPTY_VALUES: BookFields = {
   type: "",
   authorCountry: "",
   language: "English",
+  originalLanguage: "",
 };
 
 const SOURCE_OPTIONS_KEY = "bookRatings.sourceOptions";
+const LANGUAGE_OPTIONS_KEY = "bookRatings.languageOptions";
+const DEFAULT_LANGUAGES = ["German"];
 
 const INPUT_CLASSES =
   "border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400";
@@ -55,6 +58,35 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
   const isHidden = (field: string) => hiddenArr.includes(field);
   const hideField = (field: string) => setHiddenFields(JSON.stringify([...hiddenArr, field]));
   const restoreFields = () => setHiddenFields("[]");
+
+  // Original-language options for translated books (persisted per browser)
+  const [storedLanguages, setStoredLanguages] = useLocalStorage(LANGUAGE_OPTIONS_KEY);
+  const languageOptions = useMemo<string[]>(() => {
+    if (storedLanguages) {
+      try {
+        const parsed: unknown = JSON.parse(storedLanguages);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((o) => typeof o === "string")) {
+          return parsed;
+        }
+      } catch {
+        // corrupted storage — fall through to defaults
+      }
+    }
+    return [...DEFAULT_LANGUAGES];
+  }, [storedLanguages]);
+  const [addingLanguage, setAddingLanguage] = useState(false);
+  const [newLanguage, setNewLanguage] = useState("");
+
+  function addLanguage() {
+    const lang = newLanguage.trim();
+    if (!lang) return;
+    if (!languageOptions.some((l) => l.toLowerCase() === lang.toLowerCase())) {
+      setStoredLanguages(JSON.stringify([...languageOptions, lang]));
+    }
+    setValues((prev) => ({ ...prev, originalLanguage: lang }));
+    setNewLanguage("");
+    setAddingLanguage(false);
+  }
 
   // Editable "Where'd you hear about it?" options (persisted per browser)
   const [storedOptions, setStoredOptions] = useLocalStorage(SOURCE_OPTIONS_KEY);
@@ -224,7 +256,10 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
                   type="button"
                   role="radio"
                   aria-checked={values.language === lang}
-                  onClick={() => setField("language", lang)}
+                  onClick={() => {
+                    setField("language", lang);
+                    if (lang === "English") setField("originalLanguage", "");
+                  }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                     values.language === lang
                       ? "bg-blue-600 border-blue-600 text-white"
@@ -235,6 +270,58 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
                 </button>
               ))}
             </div>
+            {values.language === "Translated" && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <select
+                  value={values.originalLanguage}
+                  onChange={(e) => setField("originalLanguage", e.target.value)}
+                  aria-label="Original language"
+                  className={`${INPUT_CLASSES} flex-1 sm:max-w-xs`}
+                >
+                  <option value="">Original language…</option>
+                  {languageOptions.map((lang) => (
+                    <option key={lang} value={lang}>
+                      {lang}
+                    </option>
+                  ))}
+                </select>
+                {addingLanguage ? (
+                  <>
+                    <input
+                      type="text"
+                      value={newLanguage}
+                      onChange={(e) => setNewLanguage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addLanguage();
+                        }
+                      }}
+                      maxLength={50}
+                      placeholder="e.g. Japanese"
+                      autoFocus
+                      className={`${INPUT_CLASSES} w-32`}
+                    />
+                    <button
+                      type="button"
+                      onClick={addLanguage}
+                      disabled={!newLanguage.trim()}
+                      className="px-3 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingLanguage(true)}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 whitespace-nowrap"
+                  >
+                    Add language
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
