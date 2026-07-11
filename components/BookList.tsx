@@ -76,7 +76,7 @@ export default function BookList({ userId }: BookListProps) {
     },
     []
   );
-  useCoverBackfill(userId, books, onCoverFound);
+  const coverProgress = useCoverBackfill(userId, books, onCoverFound);
 
   const visible = useMemo(() => {
     if (!books) return [];
@@ -200,6 +200,15 @@ export default function BookList({ userId }: BookListProps) {
         {visible.length} book{visible.length === 1 ? "" : "s"}
         {filter.trim() && books.length !== visible.length && ` (of ${books.length})`}
       </p>
+
+      {coverProgress && (
+        <p className="text-xs text-gray-400">
+          {coverProgress.finished
+            ? `Cover lookup finished: found ${coverProgress.found} of ${coverProgress.total} missing covers.`
+            : `Looking up missing covers… ${coverProgress.done}/${coverProgress.total} (${coverProgress.found} found)`}
+          {coverProgress.lastError && ` — last error: ${coverProgress.lastError}`}
+        </p>
+      )}
 
       {books.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">

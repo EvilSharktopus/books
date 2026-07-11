@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookDoc, updateBook } from "@/lib/books";
+
+export interface BackfillProgress {
+  total: number;
+  done: number;
+  found: number;
+  finished: boolean;
+  lastError: string | null;
+}
 
 // Book ids we already tried and found nothing for, so page reloads don't
 // re-query the same misses forever (persisted per browser).
-const MISS_KEY = "bookRatings.coverMisses.v5";
+const MISS_KEY = "bookRatings.coverMisses.v6";
 
 function loadMisses(): Set<string> {
   try {
@@ -65,7 +73,7 @@ async function openLibraryLookup(
 ): Promise<CoverHit | null> {
   const params = new URLSearchParams({
     title,
-    limit: "5",
+    limit: "20",
     fields: "cover_i,ratings_average",
   });
   if (author) params.set("author", author);
@@ -94,6 +102,12 @@ async function findCover(
   signal: AbortSignal
 ): Promise<CoverHit | null> {
   const clean = cleanTitle(title);
+  // "Didion & Babitz" vs "Didion and Babitz" — indexes disagree, try both.
+  const ampSwapped = title.includes("&")
+    ? title.replace(/\s*&\s*/g, " and ")
+    : title.match(/\band\b/i)
+      ? title.replace(/\band\b/i, "&")
+      : null;
   // Progressively looser: exact matches first, then without the (possibly
   // misspelled) author, then subtitle stripped, then general keyword
   // searches, which tolerate typos in the source spreadsheet.
@@ -101,6 +115,7 @@ async function findCover(
     () => googleLookup(`intitle:"${title}" ${authors}`.trim(), signal),
     () => openLibraryLookup(title, authors, signal),
     () => openLibraryLookup(title, "", signal),
+    ...(ampSwapped ? [() => openLibraryLookup(ampSwapped, "", signal)] : []),
     ...(clean !== title
       ? [() => openLibraryLookup(clean, "", signal)]
       : []),
@@ -130,7 +145,8 @@ export function useCoverBackfill(
   userId: string,
   books: BookDoc[] | null,
   onCoverFound: (bookId: string, cover: string, avgRating: number | null) => void
-) {
+): BackfillProgress | null {
+  const [progress, setProgress] = useState<BackfillProgress | null>(null);
   const running = useRef(false);
   const booksRef = useRef(books);
   useEffect(() => {
@@ -147,6 +163,14 @@ export function useCoverBackfill(
 
     running.current = true;
     const controller = new AbortController();
+    const state: BackfillProgress = {
+      total: queue.length,
+      done: 0,
+      found: 0,
+      finished: false,
+      lastError: null,
+    };
+    setProgress({ ...state });
 
     (async () => {
       for (const book of queue) {
@@ -159,14 +183,21 @@ export function useCoverBackfill(
               fields.avgRating = hit.avgRating;
             await updateBook(userId, book.id, fields);
             onCoverFound(book.id, hit.cover, fields.avgRating ?? null);
+            state.found++;
           } else {
             // Searches ran and found nothing — a real miss, don't retry.
             saveMiss(book.id);
           }
+          state.done++;
+          setProgress({ ...state });
         } catch (e) {
           if (e instanceof LookupFailed) {
             // APIs are angry (rate limits) — back off but keep the book
             // eligible for a later pass.
+            state.lastError = (e as Error).message;
+            state.done++;
+            setProgress({ ...state });
+            console.warn(`[covers] ${book.title}: ${(e as Error).message}`);
             await new Promise((r) => setTimeout(r, 5000));
             continue;
           }
@@ -175,6 +206,8 @@ export function useCoverBackfill(
         await new Promise((r) => setTimeout(r, 700));
         if (controller.signal.aborted) return;
       }
+      state.finished = true;
+      setProgress({ ...state });
     })().finally(() => {
       running.current = false;
     });
@@ -184,4 +217,6 @@ export function useCoverBackfill(
     // restarting (aborting) the loop on every found cover would stall it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasBooks, userId]);
+
+  return progress;
 }
