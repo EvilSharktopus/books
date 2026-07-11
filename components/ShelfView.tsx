@@ -9,7 +9,7 @@ const PLACEHOLDER_COLORS = [
   "#4c6b8f", "#7a5c3d", "#3d6b7a", "#5c3d7a", "#3d7a5c",
 ];
 
-function placeholderColor(title: string): string {
+export function placeholderColor(title: string): string {
   let hash = 0;
   for (let i = 0; i < title.length; i++) hash = (hash * 31 + title.charCodeAt(i)) | 0;
   return PLACEHOLDER_COLORS[Math.abs(hash) % PLACEHOLDER_COLORS.length];

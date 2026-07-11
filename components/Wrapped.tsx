@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookDoc, listBooks } from "@/lib/books";
+import { placeholderColor } from "./ShelfView";
 
 interface WrappedProps {
   userId: string;
@@ -43,22 +44,187 @@ function wordCloud(books: BookDoc[]): { word: string; count: number }[] {
     .map(([word, count]) => ({ word, count }));
 }
 
-function BookRow({ book }: { book: BookDoc }) {
-  return (
-    <div className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-2.5 text-left">
-      {book.cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={book.cover} alt="" className="w-9 h-14 object-cover rounded shrink-0" />
-      ) : (
-        <div className="w-9 h-14 rounded bg-white/10 shrink-0" />
-      )}
-      <div className="min-w-0">
-        <p className="text-white font-semibold text-sm truncate">{book.title}</p>
-        <p className="text-white/60 text-xs truncate">{book.authors}</p>
-      </div>
-      <span className="ml-auto text-amber-300 font-bold whitespace-nowrap">★ {book.myRating}/10</span>
+/** Cover image, or a colored placeholder block with the title. */
+function Cover({
+  book,
+  className,
+  style,
+}: {
+  book: BookDoc;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return book.cover ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={book.cover} alt={book.title} className={`object-cover ${className ?? ""}`} style={style} />
+  ) : (
+    <div
+      className={`flex items-center justify-center p-1 ${className ?? ""}`}
+      style={{ ...style, background: placeholderColor(book.title) }}
+    >
+      <span className="text-white/90 text-[9px] font-medium text-center leading-tight line-clamp-4">
+        {book.title}
+      </span>
     </div>
   );
+}
+
+/** Fanned stack of covers, like books pulled off the shelf. */
+function CoverFan({ books }: { books: BookDoc[] }) {
+  const shown = books.slice(0, 5);
+  const mid = (shown.length - 1) / 2;
+  return (
+    <div className="flex justify-center items-end mb-6" style={{ height: 130 }}>
+      {shown.map((b, i) => (
+        <Cover
+          key={b.id}
+          book={b}
+          className="w-[72px] h-[108px] rounded shadow-xl shrink-0 wrapped-pop"
+          style={{
+            transform: `rotate(${(i - mid) * 9}deg) translateY(${Math.abs(i - mid) * 10}px)`,
+            marginLeft: i === 0 ? 0 : -22,
+            zIndex: i,
+            animationDelay: `${i * 90}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Featured big-cover row for top/bottom books. */
+function FeaturedBooks({ books }: { books: BookDoc[] }) {
+  return (
+    <div className="flex justify-center gap-4 flex-wrap">
+      {books.map((b, i) => (
+        <div key={b.id} className="w-28 wrapped-pop" style={{ animationDelay: `${i * 120}ms` }}>
+          <div className="relative">
+            <Cover book={b} className="w-28 h-[168px] rounded-lg shadow-2xl" />
+            <span className="absolute -top-2 -right-2 bg-amber-300 text-gray-900 text-sm font-extrabold rounded-full w-9 h-9 flex items-center justify-center shadow-lg">
+              {b.myRating}
+            </span>
+          </div>
+          <p className="text-white text-xs font-semibold mt-2 line-clamp-2 leading-tight">{b.title}</p>
+          <p className="text-white/50 text-[11px] truncate">{b.authors}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Draw and share a summary card image. */
+async function shareCard(
+  userName: string,
+  year: number,
+  count: number,
+  avg: number,
+  topBooks: BookDoc[]
+) {
+  const W = 1080, H = 1350;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+
+  const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
+  grad.addColorStop(0, "#1e1b4b");
+  grad.addColorStop(0.55, "#312e81");
+  grad.addColorStop(1, "#4c1d95");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#fcd34d";
+  ctx.font = "bold 46px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`📚 ${year} in Books`, W / 2, 110);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 64px Georgia, serif";
+  ctx.fillText(userName, W / 2, 195);
+
+  // Covers (drawn with CORS; fall back to colored blocks if blocked)
+  const cw = 240, ch = 360, gap = 40;
+  const startX = (W - (cw * 3 + gap * 2)) / 2;
+  const coverY = 280;
+  for (let i = 0; i < Math.min(3, topBooks.length); i++) {
+    const b = topBooks[i];
+    const x = startX + i * (cw + gap);
+    let drawn = false;
+    if (b.cover) {
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject();
+          img.src = b.cover;
+        });
+        ctx.drawImage(img, x, coverY, cw, ch);
+        drawn = true;
+      } catch {
+        drawn = false;
+      }
+    }
+    if (!drawn) {
+      ctx.fillStyle = placeholderColor(b.title);
+      ctx.fillRect(x, coverY, cw, ch);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = "bold 26px Georgia, serif";
+      const words = b.title.split(" ");
+      let line = "", ty = coverY + 80;
+      for (const word of words) {
+        if ((line + " " + word).trim().length > 14) {
+          ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
+          line = word;
+          ty += 36;
+        } else line = `${line} ${word}`;
+      }
+      if (line.trim()) ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
+    }
+    // rating badge
+    ctx.fillStyle = "#fcd34d";
+    ctx.beginPath();
+    ctx.arc(x + cw - 14, coverY + 14, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1e1b4b";
+    ctx.font = "bold 38px Georgia, serif";
+    ctx.fillText(String(b.myRating), x + cw - 14, coverY + 28);
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = "600 30px Georgia, serif";
+  ctx.fillText("Top rated this year", W / 2, coverY + ch + 64);
+
+  // Stats
+  const statY = 880;
+  ctx.fillStyle = "#fcd34d";
+  ctx.font = "bold 130px Georgia, serif";
+  ctx.fillText(String(count), W / 2 - 220, statY + 120);
+  ctx.fillText(avg.toFixed(1), W / 2 + 220, statY + 120);
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.font = "600 34px Georgia, serif";
+  ctx.fillText("books read", W / 2 - 220, statY + 180);
+  ctx.fillText("average rating", W / 2 + 220, statY + 180);
+
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.font = "28px Georgia, serif";
+  ctx.fillText("Book Ratings · Wrapped", W / 2, H - 60);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/png")
+  );
+  if (!blob) throw new Error("Could not render card");
+  const file = new File([blob], `books-wrapped-${year}.png`, { type: "image/png" });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: `${userName}'s ${year} in Books` });
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `books-wrapped-${year}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }
 
 export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
@@ -66,6 +232,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [slide, setSlide] = useState(0);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     listBooks(userId)
@@ -91,6 +258,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     const monthCounts = new Array(12).fill(0);
     for (const b of books) monthCounts[b.dateAdded!.toDate().getMonth()]++;
     const bestMonth = monthCounts.indexOf(Math.max(...monthCounts));
+    const byRating = [...rated].sort((a, b) => b.myRating - a.myRating);
     return {
       count: books.length,
       pages,
@@ -98,11 +266,13 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       avgPublic,
       highest: rated.filter((b) => b.myRating === maxRating).slice(0, 3),
       lowest: rated.filter((b) => b.myRating === minRating).slice(0, 3),
+      top3: byRating.slice(0, 3),
       cried: books.filter((b) => b.cried).length,
       translated: books.filter((b) => b.language && b.language !== "English").length,
       bestMonth,
       bestMonthCount: monthCounts[bestMonth],
       cloud: wordCloud(books),
+      withCovers: books.filter((b) => b.cover),
     };
   }, [books]);
 
@@ -135,25 +305,36 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const slides = useMemo(() => {
     if (!stats) return [];
     const maxCloud = stats.cloud[0]?.count ?? 1;
+    const fanBooks = stats.withCovers.length >= 3 ? stats.withCovers : books ?? [];
     const s: React.ReactNode[] = [];
 
     s.push(
       <div key="intro">
-        <p className="text-6xl mb-4">📚</p>
+        <CoverFan books={fanBooks.slice(0, 5)} />
         <h2 className="text-3xl font-extrabold text-white mb-3">{userName}&apos;s {year} in Books</h2>
-        <p className="text-white/70">A year of stories, one recap. Tap to begin →</p>
+        <p className="text-white/70">A year of stories, one recap →</p>
       </div>
     );
 
     s.push(
       <div key="count">
-        <p className="text-white/70 mb-2">This year you read</p>
-        <p className="text-7xl font-extrabold text-amber-300 mb-2">{stats.count}</p>
-        <p className="text-2xl text-white font-semibold mb-6">book{stats.count === 1 ? "" : "s"}</p>
+        <div className="grid grid-cols-6 gap-1.5 max-w-xs mx-auto mb-6">
+          {fanBooks.slice(0, 18).map((b, i) => (
+            <Cover
+              key={b.id}
+              book={b}
+              className="w-full rounded-sm shadow wrapped-pop"
+              style={{ aspectRatio: "2/3", animationDelay: `${i * 45}ms` }}
+            />
+          ))}
+        </div>
+        <p className="text-white/70 mb-1">This year you read</p>
+        <p className="text-6xl font-extrabold text-amber-300 mb-1">{stats.count}</p>
+        <p className="text-xl text-white font-semibold mb-3">book{stats.count === 1 ? "" : "s"}</p>
         {stats.pages > 0 && (
-          <p className="text-white/70">
-            That&apos;s <span className="text-white font-bold">{stats.pages.toLocaleString()}</span> pages —
-            about <span className="text-white font-bold">{Math.round(stats.pages / 300)}</span> paperbacks&apos; worth of paper.
+          <p className="text-white/70 text-sm">
+            <span className="text-white font-bold">{stats.pages.toLocaleString()}</span> pages —
+            about <span className="text-white font-bold">{Math.round(stats.pages / 300)}</span> paperbacks&apos; worth.
           </p>
         )}
       </div>
@@ -161,6 +342,11 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
 
     s.push(
       <div key="month">
+        <CoverFan
+          books={(books ?? [])
+            .filter((b) => b.dateAdded && b.dateAdded.toDate().getMonth() === stats.bestMonth)
+            .slice(0, 5)}
+        />
         <p className="text-white/70 mb-2">Your biggest reading month was</p>
         <p className="text-5xl font-extrabold text-amber-300 mb-3">{MONTHS[stats.bestMonth]}</p>
         <p className="text-white/70">
@@ -172,7 +358,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     s.push(
       <div key="rating">
         <p className="text-white/70 mb-2">Your average rating</p>
-        <p className="text-6xl font-extrabold text-amber-300 mb-4">★ {stats.avgMine.toFixed(1)}</p>
+        <p className="text-6xl font-extrabold text-amber-300 mb-4 wrapped-pop">★ {stats.avgMine.toFixed(1)}</p>
         {stats.avgPublic != null && (
           <p className="text-white/70">
             The rest of the world gave the same books{" "}
@@ -189,19 +375,15 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
 
     s.push(
       <div key="top" className="w-full">
-        <p className="text-white/70 mb-4">👑 Your top-rated {stats.highest.length === 1 ? "book" : "books"}</p>
-        <div className="flex flex-col gap-2 w-full">
-          {stats.highest.map((b) => <BookRow key={b.id} book={b} />)}
-        </div>
+        <p className="text-white/70 mb-5">👑 Your top-rated {stats.highest.length === 1 ? "book" : "books"}</p>
+        <FeaturedBooks books={stats.highest} />
       </div>
     );
 
     s.push(
       <div key="low" className="w-full">
-        <p className="text-white/70 mb-4">🥀 ...and the {stats.lowest.length === 1 ? "one" : "ones"} that let you down</p>
-        <div className="flex flex-col gap-2 w-full">
-          {stats.lowest.map((b) => <BookRow key={b.id} book={b} />)}
-        </div>
+        <p className="text-white/70 mb-5">🥀 ...and the {stats.lowest.length === 1 ? "one" : "ones"} that let you down</p>
+        <FeaturedBooks books={stats.lowest} />
       </div>
     );
 
@@ -213,10 +395,12 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
             {stats.cloud.map(({ word, count }, i) => (
               <span
                 key={word}
+                className="wrapped-pop"
                 style={{
                   fontSize: `${Math.round(13 + (count / maxCloud) * 26)}px`,
                   color: CLOUD_COLORS[i % CLOUD_COLORS.length],
                   fontWeight: count / maxCloud > 0.5 ? 800 : 600,
+                  animationDelay: `${i * 30}ms`,
                 }}
               >
                 {word}
@@ -231,7 +415,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       s.push(
         <div key="extras" className="flex flex-col gap-6">
           {stats.cried > 0 && (
-            <div>
+            <div className="wrapped-pop">
               <p className="text-5xl mb-2">💧</p>
               <p className="text-white">
                 <span className="font-extrabold text-amber-300 text-2xl">{stats.cried}</span> book{stats.cried === 1 ? "" : "s"} made you cry this year.
@@ -239,7 +423,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
             </div>
           )}
           {stats.translated > 0 && (
-            <div>
+            <div className="wrapped-pop" style={{ animationDelay: "150ms" }}>
               <p className="text-5xl mb-2">🌍</p>
               <p className="text-white">
                 You crossed languages <span className="font-extrabold text-amber-300 text-2xl">{stats.translated}</span> time{stats.translated === 1 ? "" : "s"} with works in translation.
@@ -256,7 +440,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           <p className="text-white/70 mb-4">✨ Some things you might not know...</p>
           <div className="flex flex-col gap-3 text-left">
             {facts.slice(0, 4).map((f, i) => (
-              <div key={i} className="bg-white/10 rounded-xl px-4 py-3">
+              <div key={i} className="bg-white/10 rounded-xl px-4 py-3 wrapped-pop" style={{ animationDelay: `${i * 120}ms` }}>
                 <p className="text-white font-bold text-sm mb-1">{f.emoji} {f.title}</p>
                 <p className="text-white/80 text-sm">{f.text}</p>
               </div>
@@ -268,20 +452,60 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
 
     s.push(
       <div key="outro">
-        <p className="text-6xl mb-4">🎉</p>
-        <h2 className="text-2xl font-extrabold text-white mb-3">Here&apos;s to {year + 1}</h2>
-        <p className="text-white/70">May your to-read pile never shrink. Happy reading, {userName}!</p>
+        <CoverFan books={stats.top3} />
+        <h2 className="text-2xl font-extrabold text-white mb-2">Here&apos;s to {year + 1}</h2>
+        <p className="text-white/70 mb-6">May your to-read pile never shrink, {userName}!</p>
+        <button
+          type="button"
+          disabled={sharing}
+          onClick={async (e) => {
+            e.stopPropagation();
+            setSharing(true);
+            try {
+              await shareCard(userName, year, stats.count, stats.avgMine, stats.top3);
+            } catch {
+              // user cancelled the share sheet, or rendering failed — no-op
+            } finally {
+              setSharing(false);
+            }
+          }}
+          className="relative z-20 px-6 py-3 rounded-full bg-amber-300 text-gray-900 font-bold text-sm hover:bg-amber-200 disabled:opacity-60 shadow-lg"
+        >
+          {sharing ? "Making your card…" : "📤 Share your year"}
+        </button>
       </div>
     );
 
     return s;
-  }, [stats, facts, userName, year]);
+  }, [stats, facts, userName, year, books, sharing]);
+
+  const next = useCallback(() => {
+    setSlide((s) => (s < slides.length - 1 ? s + 1 : s));
+  }, [slides.length]);
+  const prev = useCallback(() => setSlide((s) => Math.max(0, s - 1)), []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight" || e.key === " ") next();
+      else if (e.key === "ArrowLeft") prev();
+      else if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, onClose]);
 
   const loading = books === null;
   const empty = books !== null && (!stats || stats.count === 0);
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#191932]/95 backdrop-blur-sm flex items-center justify-center p-4">
+      <style>{`
+        @keyframes wrappedIn { from { opacity: 0; transform: translateY(18px) scale(.98); } to { opacity: 1; transform: none; } }
+        @keyframes wrappedPop { from { opacity: 0; transform: translateY(14px) scale(.7); } to { opacity: 1; } }
+        .wrapped-slide { animation: wrappedIn .45s ease both; }
+        .wrapped-pop { animation: wrappedPop .5s cubic-bezier(.34,1.56,.64,1) both; }
+      `}</style>
       <div
         className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden select-none"
         style={{ background: "linear-gradient(160deg, #1e1b4b 0%, #312e81 55%, #4c1d95 100%)" }}
@@ -289,7 +513,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-3 right-4 text-white/60 hover:text-white text-2xl z-10"
+          className="absolute top-3 right-4 text-white/60 hover:text-white text-2xl z-20"
         >
           ✕
         </button>
@@ -302,17 +526,30 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
             <p className="text-white">No books logged in {year} yet — rate a few and come back!</p>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => (slide < slides.length - 1 ? setSlide(slide + 1) : onClose())}
-            className="w-full min-h-96 px-8 py-14 flex flex-col items-center justify-center text-center cursor-pointer"
-          >
-            {slides[slide]}
-          </button>
+          <div className="relative w-full min-h-96 px-8 py-14 flex flex-col items-center justify-center text-center">
+            <div key={slide} className="wrapped-slide w-full flex flex-col items-center">
+              {slides[slide]}
+            </div>
+            {/* Tap zones: left third goes back, right two-thirds go forward */}
+            <button
+              type="button"
+              aria-label="Previous slide"
+              onClick={prev}
+              className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer"
+              tabIndex={-1}
+            />
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={next}
+              className="absolute inset-y-0 right-0 w-2/3 z-10 cursor-pointer"
+              tabIndex={-1}
+            />
+          </div>
         )}
 
         {!loading && !empty && (
-          <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-1.5">
+          <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-1.5 z-20">
             {slides.map((_, i) => (
               <button
                 key={i}
