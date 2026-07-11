@@ -1,17 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BookDoc, BookFields, deleteBook, listBooks, updateBook } from "@/lib/books";
 import { useCoverBackfill } from "./useCoverBackfill";
+import { hasAnyFilter, EMPTY_FILTERS, useFilteredBooks, SortState } from "./useFilteredBooks";
+import BookFilters from "./BookFilters";
+import ShelfView from "./ShelfView";
+import TableView from "./TableView";
+import BookDetailModal from "./BookDetailModal";
+import { useLocalStorage } from "./useLocalStorage";
 
-const SORTS = {
-  dateAdded: "Date added",
-  myRating: "My rating",
-  title: "Title A–Z",
-  year: "Year",
-} as const;
+// Dropdown sort options; table-header sorts outside this set show "Custom"
+const SORT_OPTIONS: { id: string; label: string; sort: SortState }[] = [
+  { id: "dateAdded", label: "Date added", sort: { key: "dateAdded", dir: "desc" } },
+  { id: "myRating", label: "My rating", sort: { key: "myRating", dir: "desc" } },
+  { id: "title", label: "Title A–Z", sort: { key: "title", dir: "asc" } },
+  { id: "year", label: "Year", sort: { key: "year", dir: "desc" } },
+];
 
-type SortKey = keyof typeof SORTS;
+type ViewMode = "list" | "shelf" | "table";
+const VIEWS: { id: ViewMode; icon: string; label: string }[] = [
+  { id: "list", icon: "☰", label: "List" },
+  { id: "shelf", icon: "▦", label: "Shelf" },
+  { id: "table", icon: "⊞", label: "Table" },
+];
 
 const INPUT_CLASSES =
   "border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400";
@@ -36,8 +48,12 @@ interface BookListProps {
 export default function BookList({ userId }: BookListProps) {
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
-  const [sort, setSort] = useState<SortKey>("dateAdded");
+  const { search, setSearch, sort, setSort, filters, setFilters, schema, filtered, total } =
+    useFilteredBooks(books);
+  const [storedView, setStoredView] = useLocalStorage("bookRatings.viewMode");
+  const view: ViewMode =
+    storedView === "shelf" || storedView === "table" ? storedView : "list";
+  const [detailBook, setDetailBook] = useState<BookDoc | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<BookFields>>({});
@@ -122,35 +138,24 @@ export default function BookList({ userId }: BookListProps) {
   );
   const coverProgress = useCoverBackfill(userId, books, onCoverFound);
 
-  const visible = useMemo(() => {
-    if (!books) return [];
-    const q = filter.trim().toLowerCase();
-    const filtered = q
-      ? books.filter((b) =>
-          `${b.title}\n${b.authors}\n${b.notes}`.toLowerCase().includes(q)
-        )
-      : books;
-    const sorted = [...filtered];
-    switch (sort) {
-      case "myRating":
-        sorted.sort((a, b) => b.myRating - a.myRating);
-        break;
-      case "title":
-        sorted.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case "year":
-        sorted.sort(
-          (a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0)
-        );
-        break;
-      default:
-        // dateAdded desc — the query order; pending serverTimestamps first
-        sorted.sort(
-          (a, b) => (b.dateAdded?.toMillis() ?? Infinity) - (a.dateAdded?.toMillis() ?? Infinity)
-        );
-    }
-    return sorted;
-  }, [books, filter, sort]);
+  const visible = filtered;
+
+  // Table-header sorting: click toggles direction, syncs with the dropdown
+  function handleColumnSort(key: string) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "title" || key === "authors" ? "asc" : "desc" }
+    );
+  }
+
+  const dropdownValue =
+    SORT_OPTIONS.find((o) => o.sort.key === sort.key && o.sort.dir === sort.dir)?.id ?? "custom";
+
+  function clearAllFilters() {
+    setFilters(EMPTY_FILTERS);
+    setSearch("");
+  }
 
   function startEdit(book: BookDoc) {
     setEditingId(book.id);
@@ -217,8 +222,8 @@ export default function BookList({ userId }: BookListProps) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <input
           type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter by title, author, or notes…"
           className={`${INPUT_CLASSES} flex-1`}
         />
@@ -228,23 +233,54 @@ export default function BookList({ userId }: BookListProps) {
           </label>
           <select
             id="sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            value={dropdownValue}
+            onChange={(e) => {
+              const opt = SORT_OPTIONS.find((o) => o.id === e.target.value);
+              if (opt) setSort(opt.sort);
+            }}
             className={INPUT_CLASSES}
           >
-            {(Object.entries(SORTS) as [SortKey, string][]).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
               </option>
             ))}
+            {dropdownValue === "custom" && <option value="custom">Custom</option>}
           </select>
+          <div
+            className="flex rounded-lg border border-gray-300 overflow-hidden shrink-0"
+            role="radiogroup"
+            aria-label="View"
+          >
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                role="radio"
+                aria-checked={view === v.id}
+                onClick={() => setStoredView(v.id)}
+                className={`px-2.5 py-2 text-xs font-medium flex items-center gap-1 ${
+                  view === v.id
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span aria-hidden>{v.icon}</span>
+                <span className="hidden sm:inline">{v.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <p className="text-xs text-gray-500">
-        {visible.length} book{visible.length === 1 ? "" : "s"}
-        {filter.trim() && books.length !== visible.length && ` (of ${books.length})`}
-      </p>
+      <BookFilters
+        books={books}
+        schema={schema}
+        filters={filters}
+        setFilters={setFilters}
+        resultCount={visible.length}
+        total={total}
+      />
 
       {coverProgress && (
         <p className="text-xs text-gray-400">
@@ -259,6 +295,28 @@ export default function BookList({ userId }: BookListProps) {
         <p className="text-sm text-gray-400 text-center py-8">
           No books filed yet.
         </p>
+      ) : visible.length === 0 ? (
+        <div className="text-center py-10 flex flex-col items-center gap-3">
+          <p className="text-3xl">🔍</p>
+          <p className="text-sm text-gray-500">No books match those filters.</p>
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : view === "shelf" ? (
+        <ShelfView books={visible} schema={schema} onOpen={setDetailBook} />
+      ) : view === "table" ? (
+        <TableView
+          books={visible}
+          schema={schema}
+          sort={sort}
+          onSort={handleColumnSort}
+          onOpen={setDetailBook}
+        />
       ) : (
         <ul className="flex flex-col gap-2">
           {visible.map((book) => {
@@ -517,6 +575,10 @@ export default function BookList({ userId }: BookListProps) {
             );
           })}
         </ul>
+      )}
+
+      {detailBook && (
+        <BookDetailModal book={detailBook} onClose={() => setDetailBook(null)} />
       )}
     </div>
   );
