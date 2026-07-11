@@ -5,7 +5,7 @@ import { BookDoc, updateBook } from "@/lib/books";
 
 // Book ids we already tried and found nothing for, so page reloads don't
 // re-query the same misses forever (persisted per browser).
-const MISS_KEY = "bookRatings.coverMisses.v4";
+const MISS_KEY = "bookRatings.coverMisses.v5";
 
 function loadMisses(): Set<string> {
   try {
@@ -26,6 +26,10 @@ interface CoverHit {
   avgRating: number | null;
 }
 
+// Thrown when the API request itself failed (rate limit, network) — the
+// book must NOT be marked as a permanent miss in that case.
+class LookupFailed extends Error {}
+
 // Drop subtitles/parentheticals that spoil exact matching,
 // e.g. "An american marriage: a novel" or "Slumdog Millionaire (Q&A)".
 function cleanTitle(title: string): string {
@@ -40,7 +44,7 @@ async function googleLookup(
     `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`,
     { signal }
   );
-  if (!res.ok) return null;
+  if (!res.ok) throw new LookupFailed(`google ${res.status}`);
   const data = await res.json();
   const item = (data.items ?? []).find(
     (i: { volumeInfo?: { imageLinks?: object } }) => i.volumeInfo?.imageLinks
@@ -68,7 +72,7 @@ async function openLibraryLookup(
   const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
     signal,
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new LookupFailed(`openlibrary ${res.status}`);
   const data = await res.json();
   const doc = (data.docs ?? []).find((d: { cover_i?: number }) => d.cover_i);
   if (!doc) return null;
@@ -80,6 +84,10 @@ async function openLibraryLookup(
   };
 }
 
+// Resolves to a hit, or null for a genuine "no cover exists" (at least one
+// search completed and found nothing). Throws LookupFailed when every
+// attempt errored — rate limits etc. — so callers can retry later instead
+// of blacklisting the book.
 async function findCover(
   title: string,
   authors: string,
@@ -87,8 +95,8 @@ async function findCover(
 ): Promise<CoverHit | null> {
   const clean = cleanTitle(title);
   // Progressively looser: exact matches first, then without the (possibly
-  // misspelled) author, then subtitle stripped, then Google's general
-  // search, which tolerates typos in the source spreadsheet.
+  // misspelled) author, then subtitle stripped, then general keyword
+  // searches, which tolerate typos in the source spreadsheet.
   const attempts: (() => Promise<CoverHit | null>)[] = [
     () => googleLookup(`intitle:"${title}" ${authors}`.trim(), signal),
     () => openLibraryLookup(title, authors, signal),
@@ -97,16 +105,22 @@ async function findCover(
       ? [() => openLibraryLookup(clean, "", signal)]
       : []),
     () => googleLookup(`${clean} ${authors}`.trim(), signal),
+    () => googleLookup(clean, signal),
   ];
+  let anySucceeded = false;
   for (const attempt of attempts) {
     if (signal.aborted) throw new DOMException("aborted", "AbortError");
     try {
       const hit = await attempt();
+      anySucceeded = true;
       if (hit?.cover) return hit;
     } catch (e) {
       if ((e as Error).name === "AbortError") throw e;
+      // LookupFailed or network error — try the next source
     }
+    await new Promise((r) => setTimeout(r, 250));
   }
+  if (!anySucceeded) throw new LookupFailed("all sources failed");
   return null;
 }
 
@@ -146,9 +160,16 @@ export function useCoverBackfill(
             await updateBook(userId, book.id, fields);
             onCoverFound(book.id, hit.cover, fields.avgRating ?? null);
           } else {
+            // Searches ran and found nothing — a real miss, don't retry.
             saveMiss(book.id);
           }
-        } catch {
+        } catch (e) {
+          if (e instanceof LookupFailed) {
+            // APIs are angry (rate limits) — back off but keep the book
+            // eligible for a later pass.
+            await new Promise((r) => setTimeout(r, 5000));
+            continue;
+          }
           return; // aborted or offline — stop quietly, next visit resumes
         }
         await new Promise((r) => setTimeout(r, 700));
