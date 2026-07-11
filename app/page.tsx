@@ -5,6 +5,7 @@ import RatingForm from "@/components/RatingForm";
 import BookList from "@/components/BookList";
 import UserPicker from "@/components/UserPicker";
 import UserMenu from "@/components/UserMenu";
+import Wrapped from "@/components/Wrapped";
 import { useLocalStorage } from "@/components/useLocalStorage";
 import { AppUser, BookFields, addBook, getUser } from "@/lib/books";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -29,6 +30,17 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [editMode, setEditMode] = useState(false);
+
+  // "Wrapped" year-in-review: available all December, auto-opens once per year.
+  // (?wrapped=1 forces availability for testing outside December.)
+  const [wrappedOpen, setWrappedOpen] = useState(false);
+  const [wrappedAvailable, setWrappedAvailable] = useState(false);
+  useEffect(() => {
+    const december = new Date().getMonth() === 11;
+    const forced = new URLSearchParams(window.location.search).has("wrapped");
+    setWrappedAvailable(december || forced);
+    if (forced) setWrappedOpen(true);
+  }, []);
 
   const [storedBg, applyBgColor] = useLocalStorage(BG_COLOR_KEY);
   const bgColor =
@@ -69,6 +81,16 @@ export default function Home() {
       cancelled = true;
     };
   }, [storedUserId]);
+
+  // Auto-open Wrapped once per user per year during December
+  useEffect(() => {
+    if (!user || new Date().getMonth() !== 11) return;
+    const seenKey = `bookRatings.wrappedSeen.${new Date().getFullYear()}.${user.id}`;
+    if (!localStorage.getItem(seenKey)) {
+      localStorage.setItem(seenKey, "1");
+      setWrappedOpen(true);
+    }
+  }, [user]);
 
   function selectUser(next: AppUser) {
     setStoredUserId(next.id);
@@ -143,6 +165,7 @@ export default function Home() {
               onApplyBgColor={applyBgColor}
               onSwitchView={switchView}
               onChangeUser={() => setPickerOpen(true)}
+              onOpenWrapped={wrappedAvailable ? () => setWrappedOpen(true) : undefined}
             />
           )}
         </div>
@@ -199,6 +222,10 @@ export default function Home() {
           Every rating helps someone find their next great read.
         </p>
       </footer>
+
+      {wrappedOpen && user && (
+        <Wrapped userId={user.id} userName={user.name} onClose={() => setWrappedOpen(false)} />
+      )}
 
       {showPicker && (
         <UserPicker

@@ -12,6 +12,7 @@ interface UserMenuProps {
   onApplyBgColor: (color: string | null) => void;
   onSwitchView: (view: "entry" | "list") => void;
   onChangeUser: () => void;
+  onOpenWrapped?: () => void;
 }
 
 const ITEM_CLASSES =
@@ -27,6 +28,7 @@ export default function UserMenu({
   onApplyBgColor,
   onSwitchView,
   onChangeUser,
+  onOpenWrapped,
 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -144,6 +146,17 @@ export default function UserMenu({
           >
             👤 Change user
           </button>
+          {onOpenWrapped && (
+            <button
+              className={ITEM_CLASSES}
+              onClick={() => {
+                onOpenWrapped();
+                setOpen(false);
+              }}
+            >
+              🎁 Your year in books
+            </button>
+          )}
         </div>
       )}
     </div>
