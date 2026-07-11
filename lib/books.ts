@@ -37,6 +37,7 @@ export interface BookFields {
   authorCountry: string;
   language: string;
   originalLanguage: string; // set when language is "Translated"
+  season: string; // Spring | Summer | Autumn | Winter | ""
 }
 
 export interface BookDoc extends BookFields {
@@ -93,6 +94,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       authorCountry: (data.authorCountry as string) ?? "",
       language: (data.language as string) ?? "English",
       originalLanguage: (data.originalLanguage as string) ?? "",
+      season: (data.season as string) ?? "",
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

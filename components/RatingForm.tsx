@@ -21,7 +21,10 @@ const EMPTY_VALUES: BookFields = {
   authorCountry: "",
   language: "English",
   originalLanguage: "",
+  season: "",
 };
+
+const SEASONS = ["Spring", "Summer", "Autumn", "Winter", "None"];
 
 const SOURCE_OPTIONS_KEY = "bookRatings.sourceOptions";
 const LANGUAGE_OPTIONS_KEY = "bookRatings.languageOptions";
@@ -405,6 +408,37 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
                 {type}
               </button>
             ))}
+          </div>
+        </div>
+        )}
+
+        {!isHidden("season") && (
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <span className="text-sm font-semibold text-gray-700">
+            Season <span className="font-normal text-gray-500">(optional)</span>
+            {editMode && <button type="button" onClick={() => hideField('season')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">delete question</button>}
+          </span>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Season">
+            {SEASONS.map((season) => {
+              const value = season === "None" ? "" : season;
+              const selected = values.season === value;
+              return (
+                <button
+                  key={season}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setField("season", value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    selected
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
+                  }`}
+                >
+                  {season}
+                </button>
+              );
+            })}
           </div>
         </div>
         )}

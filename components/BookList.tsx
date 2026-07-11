@@ -386,6 +386,7 @@ export default function BookList({ userId }: BookListProps) {
                           {book.pages && <div><dt className="inline font-medium">Pages: </dt><dd className="inline">{book.pages}</dd></div>}
                           {book.type && <div><dt className="inline font-medium">Type: </dt><dd className="inline">{book.type}</dd></div>}
                           {book.language && book.language !== "English" && <div><dt className="inline font-medium">Language: </dt><dd className="inline">{book.language}{book.originalLanguage && ` (from ${book.originalLanguage})`}</dd></div>}
+                          {book.season && <div><dt className="inline font-medium">Season: </dt><dd className="inline">{book.season}</dd></div>}
                           {book.authorCountry && <div><dt className="inline font-medium">Author country: </dt><dd className="inline">{book.authorCountry}</dd></div>}
                           {book.source && <div><dt className="inline font-medium">Heard from: </dt><dd className="inline">{book.source}</dd></div>}
                           {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{(book.avgRating * 2).toFixed(1)}/10</dd></div>}
