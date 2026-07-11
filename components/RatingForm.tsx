@@ -22,7 +22,14 @@ const EMPTY_VALUES: BookFields = {
   language: "English",
   originalLanguage: "",
   season: "",
+  edition: "",
 };
+
+interface EditionOption {
+  id: string;
+  cover: string;
+  label: string;
+}
 
 const SEASONS = ["Spring", "Summer", "Autumn", "Winter", "None"];
 
@@ -130,6 +137,39 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
     setValues((prev) => ({ ...prev, [field]: value }));
   }
 
+  // Alternate editions of the picked book, so the reader can match the
+  // cover art to the copy they actually read.
+  const [editions, setEditions] = useState<EditionOption[]>([]);
+
+  async function loadEditions(title: string, authors: string) {
+    setEditions([]);
+    try {
+      const q = encodeURIComponent(`intitle:"${title}" ${authors}`.trim());
+      const res = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=20`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const seen = new Set<string>();
+      const options: EditionOption[] = [];
+      for (const item of data.items ?? []) {
+        const v = item.volumeInfo ?? {};
+        const cover = (v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? "")
+          .replace("http://", "https://");
+        if (!cover || seen.has(cover)) continue;
+        seen.add(cover);
+        const label = [v.publisher, v.publishedDate?.slice(0, 4)]
+          .filter(Boolean)
+          .join(", ");
+        options.push({ id: item.id, cover, label: label || "Unknown edition" });
+        if (options.length >= 10) break;
+      }
+      if (options.length > 1) setEditions(options);
+    } catch {
+      // editions are a nice-to-have — fail silently
+    }
+  }
+
   function pickBook(book: BookResult) {
     setSuppressSearch(true);
     setValues((prev) => ({
@@ -140,9 +180,11 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
       pages: book.pages || prev.pages,
       cover: book.cover,
       avgRating: book.avgRating,
+      edition: "",
     }));
     setDismissed(true);
     setTimeout(() => setSuppressSearch(false), 400);
+    loadEditions(book.title, book.authors);
   }
 
   function saveSourceOptions(options: string[]) {
@@ -245,6 +287,38 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
             className={INPUT_CLASSES}
           />
         </div>
+
+        {!isHidden("edition") && editions.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-gray-700">
+              Edition <span className="font-normal text-gray-500">(optional — pick the cover that matches your copy)</span>
+              {editMode && <button type="button" onClick={() => hideField('edition')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">delete question</button>}
+            </span>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {editions.map((ed) => {
+                const selected = values.cover === ed.cover;
+                return (
+                  <button
+                    key={ed.id}
+                    type="button"
+                    onClick={() => {
+                      setField("cover", ed.cover);
+                      setField("edition", ed.label === "Unknown edition" ? "" : ed.label);
+                    }}
+                    title={ed.label}
+                    className={`shrink-0 rounded-lg border-2 p-1 transition-colors ${
+                      selected ? "border-blue-600 bg-blue-50" : "border-transparent hover:border-blue-300"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ed.cover} alt={ed.label} className="w-14 h-[84px] object-cover rounded" />
+                    <span className="block text-[10px] text-gray-500 max-w-14 truncate mt-0.5">{ed.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {!isHidden("language") && (
           <div className="flex flex-col gap-1.5">

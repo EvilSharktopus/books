@@ -38,6 +38,7 @@ export interface BookFields {
   language: string;
   originalLanguage: string; // set when language is "Translated"
   season: string; // Spring | Summer | Autumn | Winter | ""
+  edition: string; // e.g. "Penguin Classics, 2003"
 }
 
 export interface BookDoc extends BookFields {
@@ -95,6 +96,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       language: (data.language as string) ?? "English",
       originalLanguage: (data.originalLanguage as string) ?? "",
       season: (data.season as string) ?? "",
+      edition: (data.edition as string) ?? "",
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

@@ -45,6 +45,29 @@ export default function BookList({ userId }: BookListProps) {
   const [coverEditId, setCoverEditId] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState("");
 
+  // Resize an uploaded image to cover size and return a compact data URL,
+  // small enough to live inside the Firestore document.
+  function fileToCoverDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, 300 / img.width, 450 / img.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Could not read image"));
+      };
+      img.src = url;
+    });
+  }
+
   async function saveCoverUrl(bookId: string) {
     const url = coverUrl.trim();
     if (!/^https?:\/\/\S+$/i.test(url)) return;
@@ -140,6 +163,7 @@ export default function BookList({ userId }: BookListProps) {
       notes: book.notes,
       cried: book.cried,
       language: book.language,
+      cover: book.cover,
     });
   }
 
@@ -290,6 +314,41 @@ export default function BookList({ userId }: BookListProps) {
                   <div className="px-3 py-3 border-t border-gray-100 bg-gray-50 text-sm">
                     {editing ? (
                       <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          {draft.cover ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={draft.cover} alt="" className="w-10 h-[60px] object-cover rounded border border-gray-200 shrink-0" />
+                          ) : (
+                            <div className="w-10 h-[60px] rounded border border-dashed border-gray-300 shrink-0" />
+                          )}
+                          <div className="flex flex-col gap-1 flex-1 min-w-0">
+                            <input
+                              type="url"
+                              value={draft.cover?.startsWith("data:") ? "" : draft.cover ?? ""}
+                              onChange={(e) => setDraft((d) => ({ ...d, cover: e.target.value }))}
+                              placeholder={draft.cover?.startsWith("data:") ? "Uploaded image in use — paste a URL to replace" : "Cover image URL…"}
+                              className={INPUT_CLASSES}
+                            />
+                            <label className="text-xs font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2 cursor-pointer w-fit">
+                              …or upload an image
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const dataUrl = await fileToCoverDataUrl(file);
+                                    setDraft((d) => ({ ...d, cover: dataUrl }));
+                                  } catch {
+                                    setError("Couldn't read that image — try a different file.");
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input
                             value={draft.title ?? ""}
@@ -387,6 +446,7 @@ export default function BookList({ userId }: BookListProps) {
                           {book.type && <div><dt className="inline font-medium">Type: </dt><dd className="inline">{book.type}</dd></div>}
                           {book.language && book.language !== "English" && <div><dt className="inline font-medium">Language: </dt><dd className="inline">{book.language}{book.originalLanguage && ` (from ${book.originalLanguage})`}</dd></div>}
                           {book.season && <div><dt className="inline font-medium">Season: </dt><dd className="inline">{book.season}</dd></div>}
+                          {book.edition && <div><dt className="inline font-medium">Edition: </dt><dd className="inline">{book.edition}</dd></div>}
                           {book.authorCountry && <div><dt className="inline font-medium">Author country: </dt><dd className="inline">{book.authorCountry}</dd></div>}
                           {book.source && <div><dt className="inline font-medium">Heard from: </dt><dd className="inline">{book.source}</dd></div>}
                           {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{(book.avgRating * 2).toFixed(1)}/10</dd></div>}
