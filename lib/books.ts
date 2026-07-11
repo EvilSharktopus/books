@@ -39,6 +39,7 @@ export interface BookFields {
   originalLanguage: string; // set when language is "Translated"
   season: string; // Spring | Summer | Autumn | Winter | ""
   edition: string; // e.g. "Penguin Classics, 2003"
+  favorite: boolean; // max 4 per user, shown on the shelf's favourites row
 }
 
 export interface BookDoc extends BookFields {
@@ -97,6 +98,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       originalLanguage: (data.originalLanguage as string) ?? "",
       season: (data.season as string) ?? "",
       edition: (data.edition as string) ?? "",
+      favorite: (data.favorite as boolean) ?? false,
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

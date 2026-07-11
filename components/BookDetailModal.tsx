@@ -15,11 +15,13 @@ export default function BookDetailModal({
   onClose,
   onPrev,
   onNext,
+  onToggleFavorite,
 }: {
   book: BookDoc;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  onToggleFavorite?: () => void;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -58,7 +60,7 @@ export default function BookDetailModal({
             e.stopPropagation();
             onPrev();
           }}
-          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg text-gray-700 text-xl font-bold hover:bg-white flex items-center justify-center z-10"
+          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/25 backdrop-blur-[2px] shadow text-gray-600/70 text-xl font-bold hover:bg-white/80 hover:text-gray-700 flex items-center justify-center z-10"
         >
           ‹
         </button>
@@ -71,7 +73,7 @@ export default function BookDetailModal({
             e.stopPropagation();
             onNext();
           }}
-          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg text-gray-700 text-xl font-bold hover:bg-white flex items-center justify-center z-10"
+          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/25 backdrop-blur-[2px] shadow text-gray-600/70 text-xl font-bold hover:bg-white/80 hover:text-gray-700 flex items-center justify-center z-10"
         >
           ›
         </button>
@@ -99,6 +101,20 @@ export default function BookDetailModal({
             <p className="text-sm text-gray-500 mb-2">{book.authors}</p>
             {book.myRating > 0 && (
               <p className="text-amber-500 font-bold">★ {book.myRating}/10</p>
+            )}
+            {onToggleFavorite && (
+              <button
+                type="button"
+                onClick={onToggleFavorite}
+                className={`mt-2 flex items-center gap-1.5 text-sm font-medium rounded-full px-3 py-1 border transition-colors ${
+                  book.favorite
+                    ? "bg-amber-50 border-amber-300 text-amber-600"
+                    : "bg-white border-gray-300 text-gray-500 hover:border-amber-300 hover:text-amber-600"
+                }`}
+              >
+                <span className={book.favorite ? "text-amber-400" : "text-gray-300"}>★</span>
+                {book.favorite ? "Favourite" : "Add to favourites"}
+              </button>
             )}
             {book.cried && <p className="text-sm text-gray-500 mt-1">Cried while reading 💧</p>}
           </div>

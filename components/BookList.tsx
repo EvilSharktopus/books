@@ -157,6 +157,26 @@ export default function BookList({ userId }: BookListProps) {
     setSearch("");
   }
 
+  async function toggleFavorite(book: BookDoc) {
+    if (!books) return;
+    const next = !book.favorite;
+    if (next && books.filter((b) => b.favorite).length >= 4) {
+      setError("You can have at most 4 favourites — remove one first.");
+      return;
+    }
+    setError(null);
+    try {
+      await updateBook(userId, book.id, { favorite: next });
+      setBooks((prev) =>
+        prev ? prev.map((b) => (b.id === book.id ? { ...b, favorite: next } : b)) : prev
+      );
+      setDetailBook((prev) => (prev && prev.id === book.id ? { ...prev, favorite: next } : prev));
+    } catch (err) {
+      console.error("[books] Failed to toggle favourite:", err);
+      setError(err instanceof Error ? err.message : "Failed to update favourite.");
+    }
+  }
+
   function startEdit(book: BookDoc) {
     setEditingId(book.id);
     setDraft({
@@ -308,7 +328,7 @@ export default function BookList({ userId }: BookListProps) {
           </button>
         </div>
       ) : view === "shelf" ? (
-        <ShelfView books={visible} schema={schema} onOpen={setDetailBook} />
+        <ShelfView books={visible} allBooks={books} schema={schema} onOpen={setDetailBook} />
       ) : view === "table" ? (
         <TableView
           books={visible}
@@ -586,6 +606,7 @@ export default function BookList({ userId }: BookListProps) {
             onClose={() => setDetailBook(null)}
             onPrev={many ? () => setDetailBook(visible[(idx - 1 + visible.length) % visible.length]) : undefined}
             onNext={many ? () => setDetailBook(visible[(idx + 1) % visible.length]) : undefined}
+            onToggleFavorite={() => toggleFavorite(detailBook)}
           />
         );
       })()}

@@ -23,6 +23,7 @@ const EMPTY_VALUES: BookFields = {
   originalLanguage: "",
   season: "",
   edition: "",
+  favorite: false,
 };
 
 interface EditionOption {
