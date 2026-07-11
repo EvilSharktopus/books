@@ -78,8 +78,11 @@ export default function TableView({
   ];
 
   return (
-    <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-full text-sm border-collapse min-w-[640px]">
+    // Break out of the centered page column so the table can use the full
+    // window width, like a spreadsheet
+    <div className="relative left-1/2 -translate-x-1/2 w-screen px-4 sm:px-8">
+      <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+        <table className="w-full text-sm border-collapse min-w-[640px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-gray-50 text-xs text-gray-500">
             {columns.map((col) => (
@@ -120,7 +123,8 @@ export default function TableView({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

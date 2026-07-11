@@ -577,9 +577,18 @@ export default function BookList({ userId }: BookListProps) {
         </ul>
       )}
 
-      {detailBook && (
-        <BookDetailModal book={detailBook} onClose={() => setDetailBook(null)} />
-      )}
+      {detailBook && (() => {
+        const idx = visible.findIndex((b) => b.id === detailBook.id);
+        const many = visible.length > 1 && idx !== -1;
+        return (
+          <BookDetailModal
+            book={detailBook}
+            onClose={() => setDetailBook(null)}
+            onPrev={many ? () => setDetailBook(visible[(idx - 1 + visible.length) % visible.length]) : undefined}
+            onNext={many ? () => setDetailBook(visible[(idx + 1) % visible.length]) : undefined}
+          />
+        );
+      })()}
     </div>
   );
 }

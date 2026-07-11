@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { BookDoc } from "@/lib/books";
 
 function formatDate(book: BookDoc): string {
@@ -12,10 +13,24 @@ function formatDate(book: BookDoc): string {
 export default function BookDetailModal({
   book,
   onClose,
+  onPrev,
+  onNext,
 }: {
   book: BookDoc;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft" && onPrev) onPrev();
+      else if (e.key === "ArrowRight" && onNext) onNext();
+      else if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onPrev, onNext, onClose]);
+
   const fields: [string, string][] = [];
   if (book.type) fields.push(["Type", book.type]);
   if (book.language && book.language !== "English")
@@ -35,6 +50,32 @@ export default function BookDetailModal({
       className="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
+      {onPrev && (
+        <button
+          type="button"
+          aria-label="Previous book"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrev();
+          }}
+          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg text-gray-700 text-xl font-bold hover:bg-white flex items-center justify-center z-10"
+        >
+          ‹
+        </button>
+      )}
+      {onNext && (
+        <button
+          type="button"
+          aria-label="Next book"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-lg text-gray-700 text-xl font-bold hover:bg-white flex items-center justify-center z-10"
+        >
+          ›
+        </button>
+      )}
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 relative"
         onClick={(e) => e.stopPropagation()}
