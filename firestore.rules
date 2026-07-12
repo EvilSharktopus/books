@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Complete ruleset for the Book Ratings app.
+//
+// HOW TO APPLY: Firebase console → Firestore Database → Rules tab → select
+// ALL the existing text, delete it, paste this whole file in its place, then
+// click Publish. (Replacing wholesale avoids the common mistake of nesting the
+// recommendations rule inside the users block, which leaves /recommendations
+// itself denied.)
+//
+// This app has no Firebase Auth — users are picked from a list — so, like the
+// rest of the app, these rules are fully open. The single wildcard below
+// covers users, their books subcollection, and the recommendations
+// collection. If you later add real auth, replace this with per-collection
+// request.auth.uid checks.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

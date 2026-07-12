@@ -35,6 +35,7 @@ export default function RecommendModal({
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +90,7 @@ export default function RecommendModal({
   async function handleSend() {
     if (sending || selected.size === 0) return;
     setSending(true);
+    setSendError(null);
     try {
       await sendRecommendations(book, fromUser, [...selected], note);
       setSent(true);
@@ -96,6 +98,9 @@ export default function RecommendModal({
       setTimeout(onClose, 900);
     } catch (err) {
       console.error("[recs] Failed to send:", err);
+      setSendError(
+        "Couldn't send — the recommendations collection is blocked by your Firestore rules. Publish the rule and try again."
+      );
       setSending(false);
     }
   }
@@ -163,6 +168,11 @@ export default function RecommendModal({
               <p className="text-[11px] text-gray-400 text-right">{note.length}/140</p>
             </div>
 
+            {sendError && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">
+                {sendError}
+              </p>
+            )}
             <button
               type="button"
               onClick={handleSend}
