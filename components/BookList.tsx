@@ -8,6 +8,7 @@ import BookFilters from "./BookFilters";
 import ShelfView from "./ShelfView";
 import TableView from "./TableView";
 import BookDetailModal from "./BookDetailModal";
+import FavoritePicker from "./FavoritePicker";
 import { useLocalStorage } from "./useLocalStorage";
 
 // Dropdown sort options; table-header sorts outside this set show "Custom"
@@ -54,6 +55,7 @@ export default function BookList({ userId }: BookListProps) {
   const view: ViewMode =
     storedView === "shelf" || storedView === "table" ? storedView : "list";
   const [detailBook, setDetailBook] = useState<BookDoc | null>(null);
+  const [pickingFavorite, setPickingFavorite] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<BookFields>>({});
@@ -328,7 +330,13 @@ export default function BookList({ userId }: BookListProps) {
           </button>
         </div>
       ) : view === "shelf" ? (
-        <ShelfView books={visible} allBooks={books} schema={schema} onOpen={setDetailBook} />
+        <ShelfView
+          books={visible}
+          allBooks={books}
+          schema={schema}
+          onOpen={setDetailBook}
+          onAddFavorite={() => setPickingFavorite(true)}
+        />
       ) : view === "table" ? (
         <TableView
           books={visible}
@@ -595,6 +603,28 @@ export default function BookList({ userId }: BookListProps) {
             );
           })}
         </ul>
+      )}
+
+      {pickingFavorite && books && (
+        <FavoritePicker
+          userId={userId}
+          books={books}
+          onClose={() => setPickingFavorite(false)}
+          onPickLibrary={(book) => {
+            updateBook(userId, book.id, { favorite: true }).catch((err) =>
+              console.error("[books] Failed to favourite:", err)
+            );
+            setBooks((prev) =>
+              prev ? prev.map((b) => (b.id === book.id ? { ...b, favorite: true } : b)) : prev
+            );
+          }}
+          onCreated={(newBook) => setBooks((prev) => (prev ? [newBook, ...prev] : prev))}
+          onRated={(bookId, myRating) =>
+            setBooks((prev) =>
+              prev ? prev.map((b) => (b.id === bookId ? { ...b, myRating } : b)) : prev
+            )
+          }
+        />
       )}
 
       {detailBook && (() => {

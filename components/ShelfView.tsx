@@ -104,11 +104,13 @@ export default function ShelfView({
   allBooks,
   schema,
   onOpen,
+  onAddFavorite,
 }: {
   books: BookDoc[]; // filtered + sorted
   allBooks: BookDoc[];
   schema: FieldDef[];
   onOpen: (book: BookDoc) => void;
+  onAddFavorite?: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
 
@@ -143,34 +145,28 @@ export default function ShelfView({
     <div className="flex flex-col">
       <div className="mb-2">
         <SectionHeader>Favourites</SectionHeader>
-        {favorites.length > 0 ? (
-          <div className="grid grid-cols-4 gap-3">
-            {favorites.map((book) => (
-              <BookCell key={book.id} book={book} schema={schema} onOpen={onOpen} showRating={false} />
-            ))}
-            {Array.from({ length: 4 - favorites.length }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-md border-2 border-dashed border-gray-200"
-                style={{ aspectRatio: "2/3" }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-md border-2 border-dashed border-gray-200 flex items-center justify-center"
-                style={{ aspectRatio: "2/3" }}
-              >
-                <span className="text-gray-300 text-2xl">☆</span>
-              </div>
-            ))}
-            <p className="col-span-4 text-xs text-gray-400 mt-1">
-              No favourites selected yet — open a book and tap ☆ to add one.
-            </p>
-          </div>
+        <div className="grid grid-cols-4 gap-3">
+          {favorites.map((book) => (
+            <BookCell key={book.id} book={book} schema={schema} onOpen={onOpen} showRating={false} />
+          ))}
+          {Array.from({ length: 4 - favorites.length }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={onAddFavorite}
+              disabled={!onAddFavorite}
+              aria-label="Add a favourite"
+              className="rounded-md border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-300 hover:border-amber-300 hover:text-amber-400 transition-colors"
+              style={{ aspectRatio: "2/3" }}
+            >
+              <span className="text-2xl">☆</span>
+            </button>
+          ))}
+        </div>
+        {favorites.length === 0 && (
+          <p className="text-xs text-gray-400 mt-2">
+            No favourites selected yet — tap a ☆ slot to search and pick one.
+          </p>
         )}
       </div>
 

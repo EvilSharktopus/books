@@ -67,11 +67,12 @@ function booksCollection(userId: string) {
   return collection(getDb(), "users", userId, "books");
 }
 
-export async function addBook(userId: string, fields: BookFields): Promise<void> {
-  await addDoc(booksCollection(userId), {
+export async function addBook(userId: string, fields: BookFields): Promise<string> {
+  const ref = await addDoc(booksCollection(userId), {
     ...fields,
     dateAdded: serverTimestamp(),
   });
+  return ref.id;
 }
 
 export async function listBooks(userId: string): Promise<BookDoc[]> {
