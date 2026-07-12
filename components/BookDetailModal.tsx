@@ -60,7 +60,7 @@ export default function BookDetailModal({
             e.stopPropagation();
             onPrev();
           }}
-          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/25 backdrop-blur-[2px] shadow text-gray-600/70 text-xl font-bold hover:bg-white/80 hover:text-gray-700 flex items-center justify-center z-10"
+          className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-transparent text-gray-500/50 text-2xl font-bold hover:text-gray-700 hover:bg-white/60 flex items-center justify-center z-10"
         >
           ‹
         </button>
@@ -73,7 +73,7 @@ export default function BookDetailModal({
             e.stopPropagation();
             onNext();
           }}
-          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/25 backdrop-blur-[2px] shadow text-gray-600/70 text-xl font-bold hover:bg-white/80 hover:text-gray-700 flex items-center justify-center z-10"
+          className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-transparent text-gray-500/50 text-2xl font-bold hover:text-gray-700 hover:bg-white/60 flex items-center justify-center z-10"
         >
           ›
         </button>
