@@ -40,14 +40,15 @@ export interface BookFields {
   season: string; // Spring | Summer | Autumn | Winter | ""
   edition: string; // e.g. "Penguin Classics, 2003"
   favorite: boolean; // max 4 per user, shown on the shelf's favourites row
-  // Picked straight into favourites without a full review — excluded from
-  // "recent activity" and Wrapped until the user reviews it.
+  // Picked straight into favourites without being a book read this year —
+  // permanently excluded from "recent activity" and Wrapped reading stats.
   favoriteOnly: boolean;
 }
 
 export interface BookDoc extends BookFields {
   id: string;
   dateAdded: Timestamp | null; // null until serverTimestamp resolves
+  favoritedAt: Timestamp | null; // when this book was made a favourite
 }
 
 export async function listUsers(): Promise<AppUser[]> {
@@ -74,8 +75,22 @@ export async function addBook(userId: string, fields: BookFields): Promise<strin
   const ref = await addDoc(booksCollection(userId), {
     ...fields,
     dateAdded: serverTimestamp(),
+    ...(fields.favorite ? { favoritedAt: serverTimestamp() } : {}),
   });
   return ref.id;
+}
+
+// Toggle favourite and stamp when it happened (for the Wrapped "favourites
+// added" card). Clearing a favourite wipes the stamp.
+export async function setFavorite(
+  userId: string,
+  bookId: string,
+  favorite: boolean
+): Promise<void> {
+  await updateDoc(doc(getDb(), "users", userId, "books", bookId), {
+    favorite,
+    favoritedAt: favorite ? serverTimestamp() : null,
+  });
 }
 
 export async function listBooks(userId: string): Promise<BookDoc[]> {
@@ -105,6 +120,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       favorite: (data.favorite as boolean) ?? false,
       favoriteOnly: (data.favoriteOnly as boolean) ?? false,
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
+      favoritedAt: (data.favoritedAt as Timestamp | null) ?? null,
     };
   });
 }

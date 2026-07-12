@@ -230,13 +230,14 @@ async function shareCard(
 export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const year = new Date().getFullYear();
   const [books, setBooks] = useState<BookDoc[] | null>(null);
+  const [favAdded, setFavAdded] = useState<BookDoc[]>([]);
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [slide, setSlide] = useState(0);
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     listBooks(userId)
-      .then((all) =>
+      .then((all) => {
         setBooks(
           all.filter(
             (b) =>
@@ -244,8 +245,16 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
               b.dateAdded &&
               b.dateAdded.toDate().getFullYear() === year
           )
-        )
-      )
+        );
+        setFavAdded(
+          all.filter(
+            (b) =>
+              b.favorite &&
+              b.favoritedAt &&
+              b.favoritedAt.toDate().getFullYear() === year
+          )
+        );
+      })
       .catch(() => setBooks([]));
   }, [userId, year]);
 
@@ -441,6 +450,19 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
+    if (favAdded.length > 0) {
+      s.push(
+        <div key="favadded" className="w-full">
+          <CoverFan books={favAdded} />
+          <p className="text-white/70 mb-2">This year you crowned</p>
+          <p className="text-5xl font-extrabold text-amber-300 mb-2">{favAdded.length}</p>
+          <p className="text-white font-semibold">
+            new all-time favourite{favAdded.length === 1 ? "" : "s"} ⭐
+          </p>
+        </div>
+      );
+    }
+
     if (facts && facts.length > 0) {
       s.push(
         <div key="facts" className="w-full">
@@ -484,7 +506,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     );
 
     return s;
-  }, [stats, facts, userName, year, books, sharing]);
+  }, [stats, facts, favAdded, userName, year, books, sharing]);
 
   const next = useCallback(() => {
     setSlide((s) => (s < slides.length - 1 ? s + 1 : s));

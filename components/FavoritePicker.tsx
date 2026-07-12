@@ -87,7 +87,7 @@ export default function FavoritePicker({
         favoriteOnly: true, // not a full review yet — excluded from recent/wrapped
       };
       const id = await addBook(userId, fields);
-      const newBook: BookDoc = { ...fields, id, dateAdded: null };
+      const newBook: BookDoc = { ...fields, id, dateAdded: null, favoritedAt: null };
       onCreated(newBook);
       setRateTarget(newBook);
     } finally {
@@ -99,8 +99,9 @@ export default function FavoritePicker({
     if (!rateTarget || saving) return;
     setSaving(true);
     try {
-      // A completed review promotes it out of favourite-only limbo
-      const fields: Partial<BookFields> = { ...values, favorite: true, favoriteOnly: false };
+      // Reviewing adds the details but keeps it out of reading stats — a
+      // favourite is an all-time pick, not a book read this year.
+      const fields: Partial<BookFields> = { ...values, favorite: true, favoriteOnly: true };
       await updateBook(userId, rateTarget.id, fields);
       onReviewed(rateTarget.id, fields);
       onClose();
@@ -134,8 +135,8 @@ export default function FavoritePicker({
               <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 text-xl shrink-0">✕</button>
             </div>
             <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Added to your favourites. Want to write a review? Fill this in and it&apos;ll join
-              your recent reads — or just close to keep it as a favourite only.
+              Added to your favourites. Want to write a review? Fill this in — favourites stay
+              out of your yearly reading stats either way, so this is just for your own record.
             </p>
             <RatingForm
               onSubmit={submitReview}

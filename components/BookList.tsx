@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookDoc, BookFields, deleteBook, listBooks, updateBook } from "@/lib/books";
+import { BookDoc, BookFields, deleteBook, listBooks, setFavorite, updateBook } from "@/lib/books";
 import { useCoverBackfill } from "./useCoverBackfill";
 import { hasAnyFilter, EMPTY_FILTERS, useFilteredBooks, SortState } from "./useFilteredBooks";
 import BookFilters from "./BookFilters";
@@ -168,7 +168,7 @@ export default function BookList({ userId }: BookListProps) {
     }
     setError(null);
     try {
-      await updateBook(userId, book.id, { favorite: next });
+      await setFavorite(userId, book.id, next);
       setBooks((prev) =>
         prev ? prev.map((b) => (b.id === book.id ? { ...b, favorite: next } : b)) : prev
       );
@@ -611,7 +611,7 @@ export default function BookList({ userId }: BookListProps) {
           books={books}
           onClose={() => setPickingFavorite(false)}
           onPickLibrary={(book) => {
-            updateBook(userId, book.id, { favorite: true }).catch((err) =>
+            setFavorite(userId, book.id, true).catch((err) =>
               console.error("[books] Failed to favourite:", err)
             );
             setBooks((prev) =>
