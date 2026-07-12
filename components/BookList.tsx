@@ -9,6 +9,8 @@ import ShelfView from "./ShelfView";
 import TableView from "./TableView";
 import BookDetailModal from "./BookDetailModal";
 import FavoritePicker from "./FavoritePicker";
+import RecommendModal from "./RecommendModal";
+import { listSentForBook } from "@/lib/recommendations";
 import { useLocalStorage } from "./useLocalStorage";
 
 // Dropdown sort options; table-header sorts outside this set show "Custom"
@@ -44,9 +46,10 @@ function formatDate(book: BookDoc): string {
 
 interface BookListProps {
   userId: string;
+  userName: string;
 }
 
-export default function BookList({ userId }: BookListProps) {
+export default function BookList({ userId, userName }: BookListProps) {
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { search, setSearch, sort, setSort, filters, setFilters, schema, filtered, total } =
@@ -56,6 +59,8 @@ export default function BookList({ userId }: BookListProps) {
     storedView === "shelf" || storedView === "table" ? storedView : "list";
   const [detailBook, setDetailBook] = useState<BookDoc | null>(null);
   const [pickingFavorite, setPickingFavorite] = useState(false);
+  const [recommending, setRecommending] = useState<BookDoc | null>(null);
+  const [recCounts, setRecCounts] = useState<Record<string, number>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<BookFields>>({});
@@ -158,6 +163,20 @@ export default function BookList({ userId }: BookListProps) {
     setFilters(EMPTY_FILTERS);
     setSearch("");
   }
+
+  // How many people the current user has recommended the open book to
+  const refreshRecCount = useCallback(
+    (bookId: string) => {
+      listSentForBook(userId, bookId)
+        .then((recs) => setRecCounts((prev) => ({ ...prev, [bookId]: recs.length })))
+        .catch((err) => console.error("[recs] count failed:", err));
+    },
+    [userId]
+  );
+
+  useEffect(() => {
+    if (detailBook) refreshRecCount(detailBook.id);
+  }, [detailBook, refreshRecCount]);
 
   async function toggleFavorite(book: BookDoc) {
     if (!books) return;
@@ -627,6 +646,15 @@ export default function BookList({ userId }: BookListProps) {
         />
       )}
 
+      {recommending && (
+        <RecommendModal
+          book={recommending}
+          fromUser={{ id: userId, name: userName }}
+          onClose={() => setRecommending(null)}
+          onSent={() => refreshRecCount(recommending.id)}
+        />
+      )}
+
       {detailBook && (() => {
         const idx = visible.findIndex((b) => b.id === detailBook.id);
         const many = visible.length > 1 && idx !== -1;
@@ -637,6 +665,8 @@ export default function BookList({ userId }: BookListProps) {
             onPrev={many ? () => setDetailBook(visible[(idx - 1 + visible.length) % visible.length]) : undefined}
             onNext={many ? () => setDetailBook(visible[(idx + 1) % visible.length]) : undefined}
             onToggleFavorite={() => toggleFavorite(detailBook)}
+            onRecommend={() => setRecommending(detailBook)}
+            recommendCount={recCounts[detailBook.id] ?? 0}
           />
         );
       })()}

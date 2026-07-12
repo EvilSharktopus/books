@@ -6,6 +6,7 @@ import BookList from "@/components/BookList";
 import UserPicker from "@/components/UserPicker";
 import UserMenu from "@/components/UserMenu";
 import Wrapped from "@/components/Wrapped";
+import Inbox from "@/components/Inbox";
 import { useLocalStorage } from "@/components/useLocalStorage";
 import { AppUser, BookFields, addBook, getUser } from "@/lib/books";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -155,18 +156,21 @@ export default function Home() {
             </span>
           </h1>
           {user && (
-            <UserMenu
-              name={user.name}
-              light={light}
-              view={view}
-              editMode={editMode}
-              bgColor={bgColor}
-              onToggleEditMode={() => setEditMode((e) => !e)}
-              onApplyBgColor={applyBgColor}
-              onSwitchView={switchView}
-              onChangeUser={() => setPickerOpen(true)}
-              onOpenWrapped={wrappedAvailable ? () => setWrappedOpen(true) : undefined}
-            />
+            <div className="flex items-center gap-1.5">
+              <Inbox user={user} light={light} />
+              <UserMenu
+                name={user.name}
+                light={light}
+                view={view}
+                editMode={editMode}
+                bgColor={bgColor}
+                onToggleEditMode={() => setEditMode((e) => !e)}
+                onApplyBgColor={applyBgColor}
+                onSwitchView={switchView}
+                onChangeUser={() => setPickerOpen(true)}
+                onOpenWrapped={wrappedAvailable ? () => setWrappedOpen(true) : undefined}
+              />
+            </div>
           )}
         </div>
       </header>
@@ -190,7 +194,7 @@ export default function Home() {
 
         {view === "list" && user ? (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
-            <BookList userId={user.id} />
+            <BookList userId={user.id} userName={user.name} />
           </div>
         ) : submitted ? (
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center flex flex-col items-center gap-4">

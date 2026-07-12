@@ -16,12 +16,16 @@ export default function BookDetailModal({
   onPrev,
   onNext,
   onToggleFavorite,
+  onRecommend,
+  recommendCount = 0,
 }: {
   book: BookDoc;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   onToggleFavorite?: () => void;
+  onRecommend?: () => void;
+  recommendCount?: number;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -102,19 +106,37 @@ export default function BookDetailModal({
             {book.myRating > 0 && (
               <p className="text-amber-500 font-bold">★ {book.myRating}/10</p>
             )}
-            {onToggleFavorite && (
-              <button
-                type="button"
-                onClick={onToggleFavorite}
-                className={`mt-2 flex items-center gap-1.5 text-sm font-medium rounded-full px-3 py-1 border transition-colors ${
-                  book.favorite
-                    ? "bg-amber-50 border-amber-300 text-amber-600"
-                    : "bg-white border-gray-300 text-gray-500 hover:border-amber-300 hover:text-amber-600"
-                }`}
-              >
-                <span className={book.favorite ? "text-amber-400" : "text-gray-300"}>★</span>
-                {book.favorite ? "Favourite" : "Add to favourites"}
-              </button>
+            {(onToggleFavorite || onRecommend) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {onToggleFavorite && (
+                  <button
+                    type="button"
+                    onClick={onToggleFavorite}
+                    className={`flex items-center gap-1.5 text-sm font-medium rounded-full px-3 py-1 border transition-colors ${
+                      book.favorite
+                        ? "bg-amber-50 border-amber-300 text-amber-600"
+                        : "bg-white border-gray-300 text-gray-500 hover:border-amber-300 hover:text-amber-600"
+                    }`}
+                  >
+                    <span className={book.favorite ? "text-amber-400" : "text-gray-300"}>★</span>
+                    {book.favorite ? "Favourite" : "Add to favourites"}
+                  </button>
+                )}
+                {onRecommend && (
+                  <button
+                    type="button"
+                    onClick={onRecommend}
+                    className={`flex items-center gap-1.5 text-sm font-medium rounded-full px-3 py-1 border transition-colors ${
+                      recommendCount > 0
+                        ? "bg-indigo-50 border-indigo-300 text-indigo-600"
+                        : "bg-white border-gray-300 text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
+                    }`}
+                  >
+                    <span aria-hidden>➤</span>
+                    {recommendCount > 0 ? `Recommended · ${recommendCount}` : "Recommend"}
+                  </button>
+                )}
+              </div>
             )}
             {book.cried && <p className="text-sm text-gray-500 mt-1">Cried while reading 💧</p>}
           </div>

@@ -136,3 +136,19 @@ export async function updateBook(
 export async function deleteBook(userId: string, bookId: string): Promise<void> {
   await deleteDoc(doc(getDb(), "users", userId, "books", bookId));
 }
+
+// Does a user already have a book by this title? Used by the recommend picker
+// to show "already read it" and by the inbox to avoid duplicate accepts.
+export async function findBookByTitle(
+  userId: string,
+  title: string
+): Promise<BookDoc | null> {
+  const wanted = title.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!wanted) return null;
+  const books = await listBooks(userId);
+  return (
+    books.find(
+      (b) => b.title.toLowerCase().replace(/\s+/g, " ").trim() === wanted
+    ) ?? null
+  );
+}
