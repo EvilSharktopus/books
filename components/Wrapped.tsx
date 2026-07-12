@@ -237,7 +237,14 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   useEffect(() => {
     listBooks(userId)
       .then((all) =>
-        setBooks(all.filter((b) => b.dateAdded && b.dateAdded.toDate().getFullYear() === year))
+        setBooks(
+          all.filter(
+            (b) =>
+              !b.favoriteOnly &&
+              b.dateAdded &&
+              b.dateAdded.toDate().getFullYear() === year
+          )
+        )
       )
       .catch(() => setBooks([]));
   }, [userId, year]);

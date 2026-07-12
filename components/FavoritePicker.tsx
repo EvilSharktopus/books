@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BookDoc, BookFields, addBook, updateBook } from "@/lib/books";
 import { useBookSearch, BookResult } from "./useBookSearch";
 import { placeholderColor } from "./ShelfView";
+import RatingForm from "./RatingForm";
 
 interface FavoritePickerProps {
   userId: string;
@@ -11,7 +12,7 @@ interface FavoritePickerProps {
   onClose: () => void;
   onPickLibrary: (book: BookDoc) => void;
   onCreated: (book: BookDoc) => void;
-  onRated: (bookId: string, myRating: number) => void;
+  onReviewed: (bookId: string, fields: Partial<BookFields>) => void;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -36,14 +37,14 @@ export default function FavoritePicker({
   onClose,
   onPickLibrary,
   onCreated,
-  onRated,
+  onReviewed,
 }: FavoritePickerProps) {
   const [query, setQuery] = useState("");
   const { results, searching } = useBookSearch(query);
   const [busy, setBusy] = useState(false);
-  // After creating a book that wasn't on the shelf: offer to adjust the auto 10★
+  // After creating a book that wasn't on the shelf: offer a full review form
   const [rateTarget, setRateTarget] = useState<BookDoc | null>(null);
-  const [rating, setRating] = useState(10);
+  const [saving, setSaving] = useState(false);
 
   const libraryMatches = useMemo(() => {
     const q = norm(query);
@@ -83,24 +84,30 @@ export default function FavoritePicker({
         season: "",
         edition: "",
         favorite: true,
+        favoriteOnly: true, // not a full review yet — excluded from recent/wrapped
       };
       const id = await addBook(userId, fields);
       const newBook: BookDoc = { ...fields, id, dateAdded: null };
       onCreated(newBook);
-      setRating(10);
       setRateTarget(newBook);
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveRating() {
-    if (!rateTarget) return;
-    if (rating !== rateTarget.myRating) {
-      await updateBook(userId, rateTarget.id, { myRating: rating });
-      onRated(rateTarget.id, rating);
+  async function submitReview(values: BookFields) {
+    if (!rateTarget || saving) return;
+    setSaving(true);
+    try {
+      // A completed review promotes it out of favourite-only limbo
+      const fields: Partial<BookFields> = { ...values, favorite: true, favoriteOnly: false };
+      await updateBook(userId, rateTarget.id, fields);
+      onReviewed(rateTarget.id, fields);
+      onClose();
+    } catch (err) {
+      console.error("[books] Failed to save review:", err);
+      setSaving(false);
     }
-    onClose();
   }
 
   return (
@@ -109,52 +116,41 @@ export default function FavoritePicker({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto p-5"
+        className={`bg-white rounded-2xl shadow-2xl w-full max-h-[88vh] overflow-y-auto p-5 ${
+          rateTarget ? "max-w-lg" : "max-w-md"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {rateTarget ? (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <SmallCover cover={rateTarget.cover} title={rateTarget.title} />
-              <div className="min-w-0">
-                <p className="font-bold text-gray-900 truncate">{rateTarget.title}</p>
-                <p className="text-sm text-gray-500 truncate">{rateTarget.authors}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <SmallCover cover={rateTarget.cover} title={rateTarget.title} />
+                <div className="min-w-0">
+                  <p className="font-bold text-gray-900 truncate">{rateTarget.title}</p>
+                  <p className="text-sm text-gray-500 truncate">{rateTarget.authors}</p>
+                </div>
               </div>
+              <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-600 text-xl shrink-0">✕</button>
             </div>
-            <p className="text-sm text-gray-700">
-              Added to your favourites and rated <span className="text-amber-500 font-bold">★ 10/10</span> —
-              it&apos;s a favourite, after all. Do you want to rate this book yourself?
+            <p className="text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Added to your favourites. Want to write a review? Fill this in and it&apos;ll join
+              your recent reads — or just close to keep it as a favourite only.
             </p>
-            <div className="flex items-center gap-2">
-              <label htmlFor="fav-rating" className="text-sm text-gray-600">My rating:</label>
-              <select
-                id="fav-rating"
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-              <span className="text-amber-400">★</span>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100"
-              >
-                Keep 10 ★
-              </button>
-              <button
-                type="button"
-                onClick={saveRating}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700"
-              >
-                Save rating
-              </button>
-            </div>
+            <RatingForm
+              onSubmit={submitReview}
+              isLoading={saving}
+              submitLabel="Save review"
+              initialValues={{
+                title: rateTarget.title,
+                authors: rateTarget.authors,
+                year: rateTarget.year,
+                pages: rateTarget.pages,
+                cover: rateTarget.cover,
+                avgRating: rateTarget.avgRating,
+                myRating: rateTarget.myRating,
+              }}
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-3">

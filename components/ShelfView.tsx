@@ -115,7 +115,9 @@ export default function ShelfView({
   const [showAll, setShowAll] = useState(false);
 
   const favorites = allBooks.filter((b) => b.favorite).slice(0, 4);
+  // Favourite-only picks (added without a full review) don't count as reads
   const recent = [...allBooks]
+    .filter((b) => !b.favoriteOnly)
     .sort((a, b) => (b.dateAdded?.toMillis() ?? 0) - (a.dateAdded?.toMillis() ?? 0))
     .slice(0, 4);
 

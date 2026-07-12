@@ -40,6 +40,9 @@ export interface BookFields {
   season: string; // Spring | Summer | Autumn | Winter | ""
   edition: string; // e.g. "Penguin Classics, 2003"
   favorite: boolean; // max 4 per user, shown on the shelf's favourites row
+  // Picked straight into favourites without a full review — excluded from
+  // "recent activity" and Wrapped until the user reviews it.
+  favoriteOnly: boolean;
 }
 
 export interface BookDoc extends BookFields {
@@ -100,6 +103,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       season: (data.season as string) ?? "",
       edition: (data.edition as string) ?? "",
       favorite: (data.favorite as boolean) ?? false,
+      favoriteOnly: (data.favoriteOnly as boolean) ?? false,
       dateAdded: (data.dateAdded as Timestamp | null) ?? null,
     };
   });

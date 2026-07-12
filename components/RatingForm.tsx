@@ -24,6 +24,7 @@ const EMPTY_VALUES: BookFields = {
   season: "",
   edition: "",
   favorite: false,
+  favoriteOnly: false,
 };
 
 interface EditionOption {
@@ -45,14 +46,23 @@ interface RatingFormProps {
   onSubmit: (values: BookFields) => void;
   isLoading: boolean;
   editMode?: boolean;
+  initialValues?: Partial<BookFields>;
+  submitLabel?: string;
 }
 
-export default function RatingForm({ onSubmit, isLoading, editMode = false }: RatingFormProps) {
-  const [values, setValues] = useState<BookFields>(EMPTY_VALUES);
+export default function RatingForm({
+  onSubmit,
+  isLoading,
+  editMode = false,
+  initialValues,
+  submitLabel,
+}: RatingFormProps) {
+  const [values, setValues] = useState<BookFields>({ ...EMPTY_VALUES, ...initialValues });
 
-  // Book search typeahead on the title field
-  const [suppressSearch, setSuppressSearch] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  // Book search typeahead on the title field. When pre-filled (reviewing a
+  // favourite), start suppressed so the dropdown doesn't pop open on mount.
+  const [suppressSearch, setSuppressSearch] = useState(!!initialValues?.title);
+  const [dismissed, setDismissed] = useState(!!initialValues?.title);
   const { results, searching, failed } = useBookSearch(
     values.title,
     !suppressSearch
@@ -688,7 +698,7 @@ export default function RatingForm({ onSubmit, isLoading, editMode = false }: Ra
             Submitting…
           </span>
         ) : (
-          "Submit Rating"
+          submitLabel ?? "Submit Rating"
         )}
       </button>
     </form>

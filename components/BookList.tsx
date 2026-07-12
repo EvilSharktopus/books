@@ -619,9 +619,9 @@ export default function BookList({ userId }: BookListProps) {
             );
           }}
           onCreated={(newBook) => setBooks((prev) => (prev ? [newBook, ...prev] : prev))}
-          onRated={(bookId, myRating) =>
+          onReviewed={(bookId, fields) =>
             setBooks((prev) =>
-              prev ? prev.map((b) => (b.id === bookId ? { ...b, myRating } : b)) : prev
+              prev ? prev.map((b) => (b.id === bookId ? { ...b, ...fields } : b)) : prev
             )
           }
         />
