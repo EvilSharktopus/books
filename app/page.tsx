@@ -31,6 +31,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [editMode, setEditMode] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
 
   // "Wrapped" year-in-review: available all December, auto-opens once per year.
   // (?wrapped=1 forces availability for testing outside December.)
@@ -156,21 +158,20 @@ export default function Home() {
             </span>
           </h1>
           {user && (
-            <div className="flex items-center gap-1.5">
-              <Inbox user={user} light={light} />
-              <UserMenu
-                name={user.name}
-                light={light}
-                view={view}
-                editMode={editMode}
-                bgColor={bgColor}
-                onToggleEditMode={() => setEditMode((e) => !e)}
-                onApplyBgColor={applyBgColor}
-                onSwitchView={switchView}
-                onChangeUser={() => setPickerOpen(true)}
-                onOpenWrapped={wrappedAvailable ? () => setWrappedOpen(true) : undefined}
-              />
-            </div>
+            <UserMenu
+              name={user.name}
+              light={light}
+              view={view}
+              editMode={editMode}
+              bgColor={bgColor}
+              onToggleEditMode={() => setEditMode((e) => !e)}
+              onApplyBgColor={applyBgColor}
+              onSwitchView={switchView}
+              onChangeUser={() => setPickerOpen(true)}
+              onOpenWrapped={wrappedAvailable ? () => setWrappedOpen(true) : undefined}
+              onOpenInbox={() => setInboxOpen(true)}
+              inboxCount={inboxCount}
+            />
           )}
         </div>
       </header>
@@ -229,6 +230,15 @@ export default function Home() {
 
       {wrappedOpen && user && (
         <Wrapped userId={user.id} userName={user.name} onClose={() => setWrappedOpen(false)} />
+      )}
+
+      {user && (
+        <Inbox
+          user={user}
+          open={inboxOpen}
+          onClose={() => setInboxOpen(false)}
+          onUnreadCount={setInboxCount}
+        />
       )}
 
       {showPicker && (

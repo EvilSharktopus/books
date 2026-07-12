@@ -13,6 +13,8 @@ interface UserMenuProps {
   onSwitchView: (view: "entry" | "list") => void;
   onChangeUser: () => void;
   onOpenWrapped?: () => void;
+  onOpenInbox?: () => void;
+  inboxCount?: number;
 }
 
 const ITEM_CLASSES =
@@ -29,6 +31,8 @@ export default function UserMenu({
   onSwitchView,
   onChangeUser,
   onOpenWrapped,
+  onOpenInbox,
+  inboxCount = 0,
 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -50,9 +54,14 @@ export default function UserMenu({
         onClick={() => setOpen((o) => !o)}
         aria-label={`Menu for ${name}`}
         aria-expanded={open}
-        className="block rounded-lg hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        className="relative block rounded-lg hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-indigo-400"
         title={name}
       >
+        {inboxCount > 0 && (
+          <span className="absolute -top-1 -right-1 z-10 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center shadow">
+            {inboxCount}
+          </span>
+        )}
         {/* Ornate dark book with gold trim, the user's initial on the cover */}
         <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
           {/* page block peeking out bottom/right */}
@@ -137,6 +146,22 @@ export default function UserMenu({
           >
             {view === "entry" ? "📊 See data" : "➕ New entry"}
           </button>
+          {onOpenInbox && (
+            <button
+              className={ITEM_CLASSES}
+              onClick={() => {
+                onOpenInbox();
+                setOpen(false);
+              }}
+            >
+              🔔 Recommended to you
+              {inboxCount > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  {inboxCount}
+                </span>
+              )}
+            </button>
+          )}
           <button
             className={ITEM_CLASSES}
             onClick={() => {

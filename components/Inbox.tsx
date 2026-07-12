@@ -26,19 +26,23 @@ function Thumb({ cover, title }: { cover: string | null; title: string }) {
 
 export default function Inbox({
   user,
-  light,
+  open,
+  onClose,
+  onUnreadCount,
   onAccepted,
 }: {
   user: AppUser;
-  light: boolean;
+  open: boolean;
+  onClose: () => void;
+  onUnreadCount?: (n: number) => void;
   onAccepted?: () => void;
 }) {
   const [recs, setRecs] = useState<Recommendation[]>([]);
-  const [open, setOpen] = useState(false);
   const [accepting, setAccepting] = useState<Recommendation | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => listenInbox(user.id, setRecs), [user.id]);
+  useEffect(() => onUnreadCount?.(recs.length), [recs.length, onUnreadCount]);
 
   async function dismiss(rec: Recommendation) {
     setRecs((prev) => prev.filter((r) => r.id !== rec.id));
@@ -67,24 +71,8 @@ export default function Inbox({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Recommendations inbox"
-        className={`relative w-9 h-9 rounded-full flex items-center justify-center text-lg ${
-          light ? "text-gray-700 hover:bg-black/5" : "text-white/80 hover:bg-white/10"
-        }`}
-      >
-        🔔
-        {recs.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
-            {recs.length}
-          </span>
-        )}
-      </button>
-
       {open && (
-        <div className="fixed inset-0 z-[92]" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[92]" onClick={onClose}>
           <div
             className="absolute right-2 top-16 sm:right-6 w-[92vw] max-w-sm bg-white rounded-2xl shadow-2xl border border-gray-200 max-h-[70vh] overflow-y-auto p-4"
             onClick={(e) => e.stopPropagation()}
