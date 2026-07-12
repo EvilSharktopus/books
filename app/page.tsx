@@ -149,14 +149,23 @@ export default function Home() {
         }`}
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-          <h1
-            className={`text-xl font-bold ${light ? "text-gray-900" : "text-white"}`}
-          >
-            Book
-            <span className={light ? "text-indigo-700 ml-2" : "text-indigo-300 ml-2"}>
-              Ratings
-            </span>
-          </h1>
+          <div className="flex items-center gap-3 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Book Ratings"
+              className="w-10 h-10 rounded-lg object-cover shadow-md ring-1 ring-[#c9a24b]/40 shrink-0"
+            />
+            <h1
+              className={`text-2xl tracking-wide truncate ${light ? "text-gray-900" : "text-white"}`}
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              Book
+              <span className="ml-2 font-semibold" style={{ color: "#c9a24b" }}>
+                Ratings
+              </span>
+            </h1>
+          </div>
           {user && (
             <UserMenu
               name={user.name}
