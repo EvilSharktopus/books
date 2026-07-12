@@ -39,28 +39,38 @@ export default function RecommendModal({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Critical path: the user list. If this fails, there's nothing to show.
+      let others: AppUser[];
       try {
-        const [users, alreadySent] = await Promise.all([
-          listUsers(),
-          listSentForBook(fromUser.id, book.id),
-        ]);
-        const sentTo = new Set(alreadySent.map((r) => r.toUserId));
-        const others = users.filter((u) => u.id !== fromUser.id);
-        const built = await Promise.all(
-          others.map(async (user) => {
-            const theirs = await findBookByTitle(user.id, book.title);
-            return {
-              user,
-              alreadyRating: theirs && theirs.myRating > 0 ? theirs.myRating : null,
-              alreadyRecommended: sentTo.has(user.id),
-            } as RecipientRow;
-          })
-        );
-        if (!cancelled) setRows(built);
+        const users = await listUsers();
+        others = users.filter((u) => u.id !== fromUser.id);
       } catch (err) {
-        console.error("[recs] Failed to load recipients:", err);
+        console.error("[recs] Failed to load users:", err);
         if (!cancelled) setRows([]);
+        return;
       }
+
+      // Best-effort enrichment — a failure here must not hide recipients.
+      const sentTo = new Set<string>();
+      try {
+        for (const r of await listSentForBook(fromUser.id, book.id)) sentTo.add(r.toUserId);
+      } catch (err) {
+        console.error("[recs] Failed to load prior recommendations:", err);
+      }
+
+      const built = await Promise.all(
+        others.map(async (user) => {
+          let alreadyRating: number | null = null;
+          try {
+            const theirs = await findBookByTitle(user.id, book.title);
+            if (theirs && theirs.myRating > 0) alreadyRating = theirs.myRating;
+          } catch (err) {
+            console.error(`[recs] book check failed for ${user.name}:`, err);
+          }
+          return { user, alreadyRating, alreadyRecommended: sentTo.has(user.id) } as RecipientRow;
+        })
+      );
+      if (!cancelled) setRows(built);
     })();
     return () => {
       cancelled = true;
