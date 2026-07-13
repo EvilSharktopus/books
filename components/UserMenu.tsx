@@ -62,13 +62,14 @@ export default function UserMenu({
             {inboxCount}
           </span>
         )}
-        {/* Plain dark circle with the user's initial in gold serif */}
+        {/* Dark circle with a gold ring and the user's initial in gold serif */}
         <span
           className="w-11 h-11 rounded-full flex items-center justify-center text-lg"
           style={{
             background: "#2c2822",
             color: "#D9A84E",
             fontFamily: "Georgia, 'Times New Roman', serif",
+            boxShadow: "0 0 0 2px #D9A84E, 0 2px 6px rgba(0,0,0,0.55)",
           }}
         >
           {initial}
