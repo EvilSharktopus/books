@@ -39,7 +39,7 @@ body {
    and it extends seamlessly on ultra-wide viewports. Positioned so the empty
    black sits left under the title and the spines stay on the right. */
 .banner-header {
-  background-color: #0e0c0a;
+  background-color: #161619;
   background-image: url("/banner.png");
   background-repeat: no-repeat;
   background-size: cover;
