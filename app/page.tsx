@@ -142,30 +142,18 @@ export default function Home() {
       className={`min-h-screen ${bgColor ? "" : "bg-textured"}`}
       style={bgColor ? { background: bgColor } : undefined}
     >
-      {/* Header */}
+      {/* Header — full-bleed banner artwork, no separate bar above it */}
       <header
-        className={`relative z-40 backdrop-blur-sm border-b py-4 ${
-          light ? "bg-white/20 border-black/10" : "bg-black/20 border-white/10"
-        }`}
+        className="banner-header relative z-40 h-24 sm:h-28 flex items-center"
       >
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Book Ratings"
-              className="w-10 h-10 rounded-lg object-cover shadow-md ring-1 ring-[#c9a24b]/40 shrink-0"
-            />
-            <h1
-              className={`text-2xl tracking-wide truncate ${light ? "text-gray-900" : "text-white"}`}
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-            >
-              Book
-              <span className="ml-2 font-semibold" style={{ color: "#c9a24b" }}>
-                Ratings
-              </span>
-            </h1>
-          </div>
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 flex items-center justify-between gap-4">
+          <h1
+            className="text-3xl sm:text-4xl font-bold tracking-wide truncate"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+          >
+            <span style={{ color: "#F4EFE6" }}>Book</span>
+            <span className="ml-2.5" style={{ color: "#D9A84E" }}>Shelf</span>
+          </h1>
           {user && (
             <UserMenu
               name={user.name}

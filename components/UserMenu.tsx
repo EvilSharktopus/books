@@ -62,38 +62,17 @@ export default function UserMenu({
             {inboxCount}
           </span>
         )}
-        {/* Ornate dark book with gold trim, the user's initial on the cover */}
-        <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
-          {/* page block peeking out bottom/right */}
-          <rect x="7" y="5" width="33" height="36" rx="3" fill="#e8dcc0" />
-          <rect x="7" y="5" width="33" height="36" rx="3" fill="none" stroke="#b08d3c" strokeWidth="0.8" />
-          {/* cover */}
-          <rect x="4" y="2" width="34" height="36" rx="3.5" fill="#232946" />
-          {/* spine bands */}
-          <rect x="4" y="2" width="5" height="36" rx="2.5" fill="#1b2038" />
-          <rect x="4" y="7" width="5" height="1.4" fill="#c9a24b" opacity="0.9" />
-          <rect x="4" y="31.5" width="5" height="1.4" fill="#c9a24b" opacity="0.9" />
-          {/* gold decorative frame */}
-          <rect x="11" y="6" width="23" height="28" rx="2.5" fill="none" stroke="#c9a24b" strokeWidth="1.1" />
-          <rect x="13" y="8" width="19" height="24" rx="1.8" fill="none" stroke="#c9a24b" strokeWidth="0.5" opacity="0.7" strokeDasharray="1.5 1.6" />
-          {/* corner stars */}
-          <text x="14.5" y="11.5" fontSize="4.5" fill="#c9a24b">✦</text>
-          <text x="26.5" y="11.5" fontSize="4.5" fill="#c9a24b">✦</text>
-          <text x="14.5" y="31.5" fontSize="4.5" fill="#c9a24b">✦</text>
-          <text x="26.5" y="31.5" fontSize="4.5" fill="#c9a24b">✦</text>
-          {/* initial */}
-          <text
-            x="22.5"
-            y="26"
-            textAnchor="middle"
-            fontSize="14"
-            fontWeight="700"
-            fontFamily="Georgia, 'Times New Roman', serif"
-            fill="#e9d8a6"
-          >
-            {initial}
-          </text>
-        </svg>
+        {/* Plain dark circle with the user's initial in gold serif */}
+        <span
+          className="w-11 h-11 rounded-full flex items-center justify-center text-lg"
+          style={{
+            background: "#2c2822",
+            color: "#D9A84E",
+            fontFamily: "Georgia, 'Times New Roman', serif",
+          }}
+        >
+          {initial}
+        </span>
       </button>
 
       {open && (

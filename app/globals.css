@@ -33,3 +33,22 @@ body {
     radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
   background-size: auto, auto, 28px 28px;
 }
+
+/* Full-bleed header banner. banner.png is the dark bookshelf artwork; the
+   fallback colour matches its darkest black so there's no flash before load
+   and it extends seamlessly on ultra-wide viewports. Positioned so the empty
+   black sits left under the title and the spines stay on the right. */
+.banner-header {
+  background-color: #0e0c0a;
+  background-image: url("/banner.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: right center;
+}
+@media (max-width: 640px) {
+  /* Crop toward the right (the books) rather than shrinking the whole image. */
+  .banner-header {
+    background-size: auto 100%;
+    background-position: right center;
+  }
+}
