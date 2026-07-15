@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BOOK_TYPES, RATING_SOURCES } from "@/lib/ratingSchema";
 import { useBookSearch, BookResult } from "@/components/useBookSearch";
 import { useLocalStorage } from "@/components/useLocalStorage";
-import type { BookFields } from "@/lib/books";
+import type { AppUser, BookDoc, BookFields } from "@/lib/books";
+import RecommendModal from "@/components/RecommendModal";
 
 const EMPTY_VALUES: BookFields = {
   title: "",
@@ -48,6 +49,9 @@ interface RatingFormProps {
   editMode?: boolean;
   initialValues?: Partial<BookFields>;
   submitLabel?: string;
+  // When set, shows a "Recommend" button that recommends the book currently
+  // being entered (uses the form's title/author/cover — no saved book needed).
+  recommendUser?: AppUser;
 }
 
 export default function RatingForm({
@@ -56,8 +60,10 @@ export default function RatingForm({
   editMode = false,
   initialValues,
   submitLabel,
+  recommendUser,
 }: RatingFormProps) {
   const [values, setValues] = useState<BookFields>({ ...EMPTY_VALUES, ...initialValues });
+  const [recommendOpen, setRecommendOpen] = useState(false);
 
   // Book search typeahead on the title field. When pre-filled (reviewing a
   // favourite), start suppressed so the dropdown doesn't pop open on mount.
@@ -701,6 +707,28 @@ export default function RatingForm({
           submitLabel ?? "Submit Rating"
         )}
       </button>
+
+      {recommendUser && (
+        <button
+          type="button"
+          onClick={() => setRecommendOpen(true)}
+          disabled={!values.title.trim() || !values.authors.trim()}
+          className="w-full py-2.5 px-6 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5
+            border border-indigo-300 text-indigo-600 hover:bg-indigo-50
+            disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span aria-hidden>➤</span> Recommend to a friend
+        </button>
+      )}
+
+      {recommendUser && recommendOpen && (
+        <RecommendModal
+          book={{ ...values, id: "", dateAdded: null, favoritedAt: null } as BookDoc}
+          fromUser={recommendUser}
+          onClose={() => setRecommendOpen(false)}
+          onSent={() => {}}
+        />
+      )}
     </form>
   );
 }

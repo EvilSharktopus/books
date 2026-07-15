@@ -209,7 +209,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
-            <RatingForm key={formKey} onSubmit={handleSubmit} isLoading={isLoading} editMode={editMode} />
+            <RatingForm key={formKey} onSubmit={handleSubmit} isLoading={isLoading} editMode={editMode} recommendUser={user ?? undefined} />
           </div>
         )}
       </div>
