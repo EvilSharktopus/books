@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Luckiest_Guy, Comic_Neue } from "next/font/google";
-import "./mia.css";
+import "./ramona.css";
 
 const comicHeader = Luckiest_Guy({
   weight: "400",
@@ -17,11 +17,11 @@ const comicBody = Comic_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Mia's Comic Shelf",
-  description: "Graphic novel & chapter book tracker for Mia!",
+  title: "Ramona's Comic Shelf",
+  description: "Graphic novel & chapter book tracker for Ramona!",
 };
 
-export default function MiaLayout({
+export default function RamonaLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;

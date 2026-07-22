@@ -1,4 +1,4 @@
-/* Comic/Graphic Novel Theme for Mia's Book Tracker */
+/* Comic/Graphic Novel Theme for Ramona's Book Tracker */
 
 :root {
   --comic-bg: #fdf6e3;
@@ -56,7 +56,7 @@
   --comic-halftone: rgba(22, 163, 74, 0.04);
 }
 
-.mia-body {
+.ramona-body {
   background-color: var(--comic-bg);
   color: var(--comic-border);
   font-family: var(--font-comic-body), "Comic Neue", cursive, sans-serif;
@@ -254,7 +254,7 @@
 }
 
 /* Banner comic header alignment */
-.mia-banner {
+.ramona-banner {
   background: var(--comic-primary);
   border-bottom: 4px solid var(--comic-border);
   padding: 1.5rem 0;

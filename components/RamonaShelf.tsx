@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { KidsBookDoc, saveMiaPalette } from "@/lib/kidsBooks";
-import { ART_STYLES_CONFIG } from "./MiaRatingForm";
+import { KidsBookDoc, saveRamonaPalette } from "@/lib/kidsBooks";
+import { ART_STYLES_CONFIG } from "./RamonaRatingForm";
 
-interface MiaShelfProps {
+interface RamonaShelfProps {
   userId: string;
   books: KidsBookDoc[];
   activePalette: string;
@@ -20,14 +20,14 @@ const PALETTES = [
   { key: "jungle", label: "Jungle Adventure", bg: "#dcfce7", accent: "bg-green-500" },
 ];
 
-export default function MiaShelf({
+export default function RamonaShelf({
   userId,
   books,
   activePalette,
   onChangePalette,
   onAddBookClick,
   onDeleteBook,
-}: MiaShelfProps) {
+}: RamonaShelfProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Helper to map ratings to emoji
@@ -171,10 +171,10 @@ export default function MiaShelf({
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 pb-6 border-b-4 border-gray-900">
         <div className="flex items-center gap-4">
           <div className="starburst starburst-gold text-sm animate-bounce">
-            MIA'S ZONE!
+            RAMONA'S ZONE!
           </div>
           <h1 className="comic-header-font text-4xl sm:text-5xl md:text-6xl text-gray-900">
-            MIA'S COMIC SHELF
+            RAMONA'S COMIC SHELF
           </h1>
         </div>
 

@@ -40,34 +40,34 @@ export interface KidsBookDoc extends KidsBookFields {
   dateAdded: Timestamp | null;
 }
 
-export interface MiaUser extends AppUser {
-  miaPalette?: string;
+export interface RamonaUser extends AppUser {
+  ramonaPalette?: string;
 }
 
-export async function getOrCreateMiaUser(): Promise<MiaUser> {
+export async function getOrCreateRamonaUser(): Promise<RamonaUser> {
   const usersRef = collection(getDb(), "users");
   const snap = await getDocs(usersRef);
-  const miaDoc = snap.docs.find(
-    (d: QueryDocumentSnapshot<DocumentData>) => (d.data().name as string | undefined)?.toLowerCase() === "mia"
+  const ramonaDoc = snap.docs.find(
+    (d: QueryDocumentSnapshot<DocumentData>) => (d.data().name as string | undefined)?.toLowerCase() === "ramona"
   );
 
-  if (miaDoc) {
-    const data = miaDoc.data();
+  if (ramonaDoc) {
+    const data = ramonaDoc.data();
     return {
-      id: miaDoc.id,
+      id: ramonaDoc.id,
       name: data.name as string,
-      miaPalette: data.miaPalette as string | undefined,
+      ramonaPalette: data.ramonaPalette as string | undefined,
     };
   }
 
-  // Create Mia if she doesn't exist
-  const ref = await addDoc(usersRef, { name: "Mia", miaPalette: "classic" });
-  return { id: ref.id, name: "Mia", miaPalette: "classic" };
+  // Create Ramona if she doesn't exist
+  const ref = await addDoc(usersRef, { name: "Ramona", ramonaPalette: "classic" });
+  return { id: ref.id, name: "Ramona", ramonaPalette: "classic" };
 }
 
-export async function saveMiaPalette(userId: string, paletteName: string): Promise<void> {
+export async function saveRamonaPalette(userId: string, paletteName: string): Promise<void> {
   const userRef = doc(getDb(), "users", userId);
-  await updateDoc(userRef, { miaPalette: paletteName });
+  await updateDoc(userRef, { ramonaPalette: paletteName });
 }
 
 function kidsBooksCollection(userId: string) {

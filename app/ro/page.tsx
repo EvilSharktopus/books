@@ -5,18 +5,18 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   KidsBookDoc,
   KidsBookFields,
-  MiaUser,
+  RamonaUser,
   addKidsBook,
   deleteKidsBook,
-  getOrCreateMiaUser,
+  getOrCreateRamonaUser,
   listKidsBooks,
-  saveMiaPalette,
+  saveRamonaPalette,
 } from "@/lib/kidsBooks";
-import MiaRatingForm from "@/components/MiaRatingForm";
-import MiaShelf from "@/components/MiaShelf";
+import RamonaRatingForm from "@/components/RamonaRatingForm";
+import RamonaShelf from "@/components/RamonaShelf";
 
-export default function MiaPage() {
-  const [user, setUser] = useState<MiaUser | null>(null);
+export default function RamonaPage() {
+  const [user, setUser] = useState<RamonaUser | null>(null);
   const [books, setBooks] = useState<KidsBookDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<"shelf" | "add-book">("shelf");
@@ -26,20 +26,20 @@ export default function MiaPage() {
   // Author Celebration State
   const [celebratedAuthor, setCelebratedAuthor] = useState<string | null>(null);
 
-  // 1. Load or Create Mia user & fetch settings
+  // 1. Load or Create Ramona user & fetch settings
   useEffect(() => {
     if (!isFirebaseConfigured) {
       setLoading(false);
       return;
     }
 
-    getOrCreateMiaUser()
-      .then((miaUser) => {
-        setUser(miaUser);
-        if (miaUser.miaPalette) {
-          setActivePalette(miaUser.miaPalette);
+    getOrCreateRamonaUser()
+      .then((ramonaUser) => {
+        setUser(ramonaUser);
+        if (ramonaUser.ramonaPalette) {
+          setActivePalette(ramonaUser.ramonaPalette);
         }
-        return listKidsBooks(miaUser.id);
+        return listKidsBooks(ramonaUser.id);
       })
       .then((booksList) => {
         if (booksList) {
@@ -48,7 +48,7 @@ export default function MiaPage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load Mia's zone:", err);
+        console.error("Failed to load Ramona's zone:", err);
         setLoading(false);
       });
   }, []);
@@ -74,7 +74,7 @@ export default function MiaPage() {
     if (favoriteAuthors.length === 0) return;
 
     // Read celebrated authors from local storage
-    const storageKey = `bookRatings.miaCelebratedAuthors.${user.id}`;
+    const storageKey = `bookRatings.ramonaCelebratedAuthors.${user.id}`;
     let celebratedList: string[] = [];
     try {
       const stored = localStorage.getItem(storageKey);
@@ -99,7 +99,7 @@ export default function MiaPage() {
     setActivePalette(palette);
     if (user) {
       try {
-        await saveMiaPalette(user.id, palette);
+        await saveRamonaPalette(user.id, palette);
       } catch (err) {
         console.error("Failed to save palette preference:", err);
       }
@@ -142,7 +142,7 @@ export default function MiaPage() {
           <span className="text-5xl">⚠️</span>
           <h2 className="font-sans font-bold text-gray-800 text-xl mt-4">Database Not Configured</h2>
           <p className="text-gray-600 text-sm mt-2">
-            Please add your Firebase environment variables to <code>.env.local</code> to start using Mia's Book Shelf.
+            Please add your Firebase environment variables to <code>.env.local</code> to start using Ramona's Book Shelf.
           </p>
         </div>
       </div>
@@ -154,16 +154,16 @@ export default function MiaPage() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-yellow-50">
         <div className="comic-panel animate-pulse text-center p-8 border-4 border-gray-900 bg-white rounded shadow-lg transform -rotate-1">
           <span className="text-4xl animate-bounce block mb-2">💥</span>
-          <h2 className="comic-header-font text-2xl text-gray-900">LOADING MIA'S SHELF...</h2>
+          <h2 className="comic-header-font text-2xl text-gray-900">LOADING RAMONA'S SHELF...</h2>
         </div>
       </div>
     );
   }
 
   return (
-    <main className={`mia-body palette-${activePalette} min-h-screen pb-16`}>
+    <main className={`ramona-body palette-${activePalette} min-h-screen pb-16`}>
       {activeView === "shelf" ? (
-        <MiaShelf
+        <RamonaShelf
           userId={user?.id || ""}
           books={books}
           activePalette={activePalette}
@@ -172,7 +172,7 @@ export default function MiaPage() {
           onDeleteBook={handleDeleteBook}
         />
       ) : (
-        <MiaRatingForm
+        <RamonaRatingForm
           onSubmit={handleAddBookSubmit}
           isLoading={submitting}
           existingBooks={books}

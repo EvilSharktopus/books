@@ -31,19 +31,19 @@ const INITIAL_FIELDS: KidsBookFields = {
   favoriteInSeries: false,
 };
 
-interface MiaRatingFormProps {
+interface RamonaRatingFormProps {
   onSubmit: (fields: KidsBookFields) => void;
   isLoading: boolean;
   existingBooks: KidsBookDoc[];
   onCancel: () => void;
 }
 
-export default function MiaRatingForm({
+export default function RamonaRatingForm({
   onSubmit,
   isLoading,
   existingBooks,
   onCancel,
-}: MiaRatingFormProps) {
+}: RamonaRatingFormProps) {
   const [values, setValues] = useState<KidsBookFields>({ ...INITIAL_FIELDS });
   const [suppressSearch, setSuppressSearch] = useState(false);
   const [dismissed, setDismissed] = useState(false);
