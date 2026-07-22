@@ -14,7 +14,6 @@ interface Candidate {
   pages: string;
   cover: string;
   avgRating: number | null;
-  myRating: number;
   enriching: boolean;
   saved: boolean;
   saveError: string | null;
@@ -25,31 +24,6 @@ const MAX_PHOTOS = 6;
 
 const INPUT_CLASSES =
   "border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400";
-
-function RatingPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Rating out of 10">
-      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-        <button
-          key={n}
-          type="button"
-          role="radio"
-          aria-checked={value === n}
-          onClick={() => onChange(n)}
-          className={`w-6 h-6 rounded text-[11px] font-semibold border transition-colors ${
-            value === n
-              ? "bg-blue-600 border-blue-600 text-white"
-              : n <= value
-                ? "bg-blue-100 border-blue-200 text-blue-700"
-                : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
-          }`}
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 interface BulkPhotoAddProps {
   user: AppUser;
@@ -142,7 +116,6 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
         pages: "",
         cover: "",
         avgRating: null,
-        myRating: 0,
         enriching: true,
         saved: false,
         saveError: null,
@@ -171,9 +144,9 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
     const pending = candidates.filter((c) => c.include && !c.saved);
     if (pending.length === 0) return;
 
-    const invalid = pending.some((c) => !c.title.trim() || c.myRating < 1);
+    const invalid = pending.some((c) => !c.title.trim());
     if (invalid) {
-      setValidationError("Give each included book a title and a rating (1–10) before adding.");
+      setValidationError("Give each included book a title before adding.");
       return;
     }
 
@@ -187,7 +160,7 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
         cover: candidate.cover,
         avgRating: candidate.avgRating,
         source: "",
-        myRating: candidate.myRating,
+        myRating: 0,
         notes: "",
         cried: false,
         type: "",
@@ -226,7 +199,8 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
         <h2 className="text-base font-semibold text-gray-800 mb-1">Add books from a photo</h2>
         <p className="text-sm text-gray-500">
           Upload photos of a shelf, stack, or covers (up to {MAX_PHOTOS}) — we&apos;ll pick out the
-          titles so you can review and rate them before adding.
+          titles. Uncheck anything that&apos;s wrong, then add them all — no rating needed now,
+          you can rate them anytime from the list view.
         </p>
       </div>
 
@@ -343,7 +317,6 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
                     className={INPUT_CLASSES}
                   />
                 </div>
-                {!c.saved && <RatingPicker value={c.myRating} onChange={(n) => updateCandidate(c.key, "myRating", n)} />}
                 {c.saved && <span className="text-xs font-medium text-green-700">Added ✓</span>}
                 {c.saveError && <span className="text-xs text-red-600">{c.saveError}</span>}
               </div>
