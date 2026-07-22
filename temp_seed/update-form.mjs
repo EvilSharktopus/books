@@ -1,6 +1,7 @@
 import fs from "fs";
 
 let code = fs.readFileSync("components/RatingForm.tsx", "utf-8");
+code = code.replace(/\r\n/g, "\n"); // Normalize line endings to LF
 
 // 1. Add language to EMPTY_VALUES
 code = code.replace(
@@ -177,7 +178,7 @@ code = code.replace(
       )}
 
       {hiddenArr.length > 0 && (
-        <div className="text-center">
+        <div className="text-center pt-2">
           <button type="button" onClick={restoreFields} className="text-sm font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2">
             Restore hidden questions
           </button>
