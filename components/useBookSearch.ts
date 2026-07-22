@@ -36,7 +36,7 @@ interface OpenLibraryDoc {
 }
 
 // Google Books primary, Open Library fallback.
-async function searchBooks(
+export async function searchBooks(
   query: string,
   signal: AbortSignal
 ): Promise<BookResult[]> {

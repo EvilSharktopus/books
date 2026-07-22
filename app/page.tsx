@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import RatingForm from "@/components/RatingForm";
 import BookList from "@/components/BookList";
+import BulkPhotoAdd from "@/components/BulkPhotoAdd";
 import UserPicker from "@/components/UserPicker";
 import UserMenu from "@/components/UserMenu";
 import Wrapped from "@/components/Wrapped";
@@ -25,7 +26,7 @@ function isLightColor(hex: string): boolean {
 }
 
 export default function Home() {
-  const [view, setView] = useState<"entry" | "list">("entry");
+  const [view, setView] = useState<"entry" | "list" | "photo">("entry");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -127,7 +128,7 @@ export default function Home() {
     setFormKey((k) => k + 1);
   }
 
-  function switchView(next: "entry" | "list") {
+  function switchView(next: "entry" | "list" | "photo") {
     setView(next);
     setSubmitted(false);
     setError(null);
@@ -193,6 +194,10 @@ export default function Home() {
         {view === "list" && user ? (
           <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
             <BookList userId={user.id} userName={user.name} />
+          </div>
+        ) : view === "photo" && user ? (
+          <div className="bg-white rounded-2xl shadow-xl p-5 sm:p-6">
+            <BulkPhotoAdd user={user} onDone={() => switchView("list")} />
           </div>
         ) : submitted ? (
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center flex flex-col items-center gap-4">

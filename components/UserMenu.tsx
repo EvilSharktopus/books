@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from "react";
 interface UserMenuProps {
   name: string;
   light: boolean;
-  view: "entry" | "list";
+  view: "entry" | "list" | "photo";
   editMode: boolean;
   bgColor: string | null;
   onToggleEditMode: () => void;
   onApplyBgColor: (color: string | null) => void;
-  onSwitchView: (view: "entry" | "list") => void;
+  onSwitchView: (view: "entry" | "list" | "photo") => void;
   onChangeUser: () => void;
   onOpenWrapped?: () => void;
   onOpenInbox?: () => void;
@@ -125,6 +125,15 @@ export default function UserMenu({
             }}
           >
             {view === "entry" ? "📊 See data" : "➕ New entry"}
+          </button>
+          <button
+            className={ITEM_CLASSES}
+            onClick={() => {
+              onSwitchView("photo");
+              setOpen(false);
+            }}
+          >
+            📷 Add from photo
           </button>
           {onOpenInbox && (
             <button
