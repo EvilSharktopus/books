@@ -1,0 +1,284 @@
+/* Comic/Graphic Novel Theme for Ramona's Book Tracker */
+
+:root {
+  --comic-bg: #fdf6e3;
+  --comic-panel-bg: #ffffff;
+  --comic-border: #1a1a1a;
+  --comic-shadow: #1a1a1a;
+  --comic-primary: #e11d48;
+  --comic-stamp-bg: #facc15;
+  --comic-stamp-text: #1a1a1a;
+  --comic-halftone: rgba(0, 0, 0, 0.03);
+}
+
+/* Curated Palette Toggles */
+.palette-classic {
+  --comic-bg: #fdf6e3;
+  --comic-panel-bg: #ffffff;
+  --comic-border: #1a1a1a;
+  --comic-shadow: #1a1a1a;
+  --comic-primary: #e11d48;
+  --comic-stamp-bg: #facc15;
+  --comic-stamp-text: #1a1a1a;
+  --comic-halftone: rgba(0, 0, 0, 0.03);
+}
+
+.palette-ocean {
+  --comic-bg: #e0f2fe;
+  --comic-panel-bg: #ffffff;
+  --comic-border: #0f172a;
+  --comic-shadow: #0f172a;
+  --comic-primary: #0284c7;
+  --comic-stamp-bg: #38bdf8;
+  --comic-stamp-text: #0f172a;
+  --comic-halftone: rgba(2, 132, 199, 0.04);
+}
+
+.palette-sunset {
+  --comic-bg: #ffedd5;
+  --comic-panel-bg: #ffffff;
+  --comic-border: #1a0f0a;
+  --comic-shadow: #1a0f0a;
+  --comic-primary: #ea580c;
+  --comic-stamp-bg: #fdba74;
+  --comic-stamp-text: #1a0f0a;
+  --comic-halftone: rgba(234, 88, 12, 0.04);
+}
+
+.palette-jungle {
+  --comic-bg: #dcfce7;
+  --comic-panel-bg: #ffffff;
+  --comic-border: #052e16;
+  --comic-shadow: #052e16;
+  --comic-primary: #16a34a;
+  --comic-stamp-bg: #86efac;
+  --comic-stamp-text: #052e16;
+  --comic-halftone: rgba(22, 163, 74, 0.04);
+}
+
+.ramona-body {
+  background-color: var(--comic-bg);
+  color: var(--comic-border);
+  font-family: var(--font-comic-body), "Comic Neue", cursive, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  /* Repeating Halftone Dot Texture */
+  background-image: radial-gradient(var(--comic-halftone) 15%, transparent 16%);
+  background-size: 16px 16px;
+  background-attachment: fixed;
+}
+
+/* Comic Panel Base */
+.comic-panel {
+  background: var(--comic-panel-bg);
+  border: 3.5px solid var(--comic-border);
+  box-shadow: 6px 6px 0 var(--comic-shadow);
+  border-radius: 4px;
+  padding: 1.5rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comic-panel:hover {
+  transform: scale(1.01) rotate(var(--comic-rotate, 0deg));
+}
+
+/* Interactive hover action for buttons */
+.comic-btn-interactive {
+  cursor: pointer;
+  background: var(--comic-stamp-bg);
+  color: var(--comic-stamp-text);
+  font-family: var(--font-comic-header), "Luckiest Guy", Impact, sans-serif;
+  border: 3px solid var(--comic-border);
+  box-shadow: 4px 4px 0 var(--comic-shadow);
+  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+}
+
+.comic-btn-interactive:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--comic-shadow);
+}
+
+.comic-btn-interactive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 4px 4px 0 var(--comic-shadow);
+}
+
+/* Comic Headers */
+.comic-header-font {
+  font-family: var(--font-comic-header), "Luckiest Guy", Impact, sans-serif;
+  letter-spacing: 0.05em;
+  text-shadow: 2px 2px 0 var(--comic-bg), 4px 4px 0 var(--comic-border);
+  -webkit-text-stroke: 1px var(--comic-border);
+  text-transform: uppercase;
+}
+
+/* Speech Bubble styling */
+.speech-bubble {
+  position: relative;
+  background: #ffffff;
+  border: 3px solid var(--comic-border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 4px 4px 0 var(--comic-shadow);
+  margin-bottom: 1.5rem;
+}
+
+/* speech bubble pointing left/bottom */
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -15px;
+  left: 30px;
+  border-width: 15px 15px 0;
+  border-style: solid;
+  border-color: #ffffff transparent;
+  display: block;
+  width: 0;
+  z-index: 1;
+}
+
+.speech-bubble::before {
+  content: "";
+  position: absolute;
+  bottom: -19px;
+  left: 28px;
+  border-width: 17px 17px 0;
+  border-style: solid;
+  border-color: var(--comic-border) transparent;
+  display: block;
+  width: 0;
+  z-index: 0;
+}
+
+/* Starburst stamp effect */
+.starburst {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--comic-primary);
+  color: #ffffff;
+  font-family: var(--font-comic-header), "Luckiest Guy", Impact, sans-serif;
+  font-size: 1rem;
+  padding: 0.75rem 1.25rem;
+  border: 2px solid var(--comic-border);
+  clip-path: polygon(
+    100% 50%, 88% 68%, 97% 83%, 78% 83%, 73% 97%,
+    50% 88%, 27% 97%, 22% 83%, 3% 83%, 12% 68%,
+    0% 50%, 12% 32%, 3% 17%, 22% 17%, 27% 3%,
+    50% 12%, 73% 3%, 78% 17%, 97% 17%, 88% 32%
+  );
+  text-transform: uppercase;
+  transform: rotate(-5deg);
+  box-shadow: 3px 3px 0 var(--comic-shadow);
+  text-shadow: 1px 1px 0 var(--comic-border);
+  line-height: 1;
+}
+
+/* Starburst stamp gold variation */
+.starburst-gold {
+  background: var(--comic-stamp-bg);
+  color: var(--comic-stamp-text);
+  text-shadow: none;
+}
+
+/* Custom layout grids for graphic novel look */
+.comic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.75rem;
+}
+
+/* Splash panel spans 2x2 */
+.comic-splash-panel {
+  grid-column: span 2;
+  grid-row: span 2;
+  border-width: 4px;
+  box-shadow: 8px 8px 0 var(--comic-shadow);
+  background: radial-gradient(circle at 80% 20%, var(--comic-stamp-bg) 0%, transparent 60%), var(--comic-panel-bg);
+}
+
+@media (max-width: 768px) {
+  .comic-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+  .comic-splash-panel {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .comic-grid {
+    grid-template-columns: 1fr;
+  }
+  .comic-splash-panel {
+    grid-column: span 1;
+  }
+}
+
+/* Series slot visual checklist */
+.series-slot {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  text-align: center;
+  position: relative;
+}
+
+.series-slot-read {
+  border: 2px solid var(--comic-border);
+  background: var(--comic-panel-bg);
+  box-shadow: 3px 3px 0 var(--comic-shadow);
+}
+
+.series-slot-unread {
+  border: 2px dashed var(--comic-border);
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0.6;
+}
+
+/* Banner comic header alignment */
+.ramona-banner {
+  background: var(--comic-primary);
+  border-bottom: 4px solid var(--comic-border);
+  padding: 1.5rem 0;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 0 var(--comic-shadow);
+}
+
+/* Dictation indicator */
+.listening-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: var(--comic-primary);
+  border-radius: 50%;
+  animation: pulse-listening 1s infinite alternate;
+}
+
+@keyframes pulse-listening {
+  from {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
