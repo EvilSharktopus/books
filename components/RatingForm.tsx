@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BOOK_TYPES, RATING_SOURCES } from "@/lib/ratingSchema";
+import { AUTHOR_GENDERS, BOOK_TYPES, RATING_SOURCES } from "@/lib/ratingSchema";
 import { useBookSearch, BookResult } from "@/components/useBookSearch";
 import { useLocalStorage } from "@/components/useLocalStorage";
 import type { AppUser, BookDoc, BookFields } from "@/lib/books";
@@ -20,6 +20,7 @@ const EMPTY_VALUES: BookFields = {
   cried: false,
   type: "",
   authorCountry: "",
+  authorGender: "",
   language: "English",
   originalLanguage: "",
   season: "",
@@ -436,6 +437,33 @@ export default function RatingForm({
             className={INPUT_CLASSES}
           />
         </div>
+        )}
+
+        {!isHidden("authorGender") && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-gray-700">
+              Author gender <span className="font-normal text-gray-500">(optional)</span>
+              {editMode && <button type="button" onClick={() => hideField('authorGender')} className="ml-2 text-xs text-red-500 hover:text-red-700 font-normal">delete question</button>}
+            </span>
+            <div className="flex gap-2" role="radiogroup" aria-label="Author gender">
+              {AUTHOR_GENDERS.map((gender) => (
+                <button
+                  key={gender}
+                  type="button"
+                  role="radio"
+                  aria-checked={values.authorGender === gender}
+                  onClick={() => setField("authorGender", values.authorGender === gender ? "" : gender)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    values.authorGender === gender
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white border-gray-300 text-gray-700 hover:border-blue-400"
+                  }`}
+                >
+                  {gender}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

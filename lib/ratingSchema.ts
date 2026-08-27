@@ -1,5 +1,6 @@
 // Shared between server and client — no Node imports here.
 export const BOOK_TYPES = ["Fiction", "Non-Fiction"] as const;
+export const AUTHOR_GENDERS = ["Male", "Female"] as const;
 // Default options for "Where'd you hear about it?" — the form lets the
 // user edit this list (stored in localStorage), so stored records may
 // contain values beyond these.

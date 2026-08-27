@@ -79,6 +79,7 @@ export default function FavoritePicker({
         cried: false,
         type: "",
         authorCountry: "",
+        authorGender: "",
         language: "English",
         originalLanguage: "",
         season: "",

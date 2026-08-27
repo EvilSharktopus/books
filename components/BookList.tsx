@@ -490,6 +490,16 @@ export default function BookList({ userId, userName }: BookListProps) {
                             <option value="Translated">Translated</option>
                           </select>
                           <select
+                            value={draft.authorGender ?? ""}
+                            onChange={(e) => setDraft((d) => ({ ...d, authorGender: e.target.value }))}
+                            className={INPUT_CLASSES}
+                            aria-label="Author gender"
+                          >
+                            <option value="">Author gender…</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                          </select>
+                          <select
                             value={draft.myRating ?? 0}
                             onChange={(e) =>
                               setDraft((d) => ({ ...d, myRating: parseInt(e.target.value, 10) }))
@@ -553,6 +563,7 @@ export default function BookList({ userId, userName }: BookListProps) {
                           {book.season && <div><dt className="inline font-medium">Season: </dt><dd className="inline">{book.season}</dd></div>}
                           {book.edition && <div><dt className="inline font-medium">Edition: </dt><dd className="inline">{book.edition}</dd></div>}
                           {book.authorCountry && <div><dt className="inline font-medium">Author country: </dt><dd className="inline">{book.authorCountry}</dd></div>}
+                          {book.authorGender && <div><dt className="inline font-medium">Author gender: </dt><dd className="inline">{book.authorGender}</dd></div>}
                           {book.source && <div><dt className="inline font-medium">Heard from: </dt><dd className="inline">{book.source}</dd></div>}
                           {book.avgRating != null && <div><dt className="inline font-medium">Public avg: </dt><dd className="inline">★{(book.avgRating * 2).toFixed(1)}/10</dd></div>}
                           {book.cried && <div><dd className="inline">Cried while reading 💧</dd></div>}

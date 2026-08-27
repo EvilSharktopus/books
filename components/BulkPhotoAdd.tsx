@@ -165,6 +165,7 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
         cried: false,
         type: "",
         authorCountry: "",
+        authorGender: "",
         language: "English",
         originalLanguage: "",
         season: "",

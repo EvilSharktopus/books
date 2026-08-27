@@ -24,6 +24,7 @@ const CANDIDATE_FIELDS: FieldDef[] = [
   { key: "season", label: "Season", kind: "enum", get: (b) => b.season || null },
   { key: "source", label: "Where'd you hear about it", kind: "enum", get: (b) => b.source || null },
   { key: "authorCountry", label: "Author country", kind: "text", get: (b) => b.authorCountry || null },
+  { key: "authorGender", label: "Author gender", kind: "enum", get: (b) => b.authorGender || null },
   { key: "year", label: "Year", kind: "numeric", get: (b) => parseInt(b.year, 10) || null },
   { key: "pages", label: "Pages", kind: "numeric", get: (b) => parseInt(b.pages, 10) || null },
   { key: "cried", label: "Cried while reading", kind: "boolean", get: (b) => b.cried },

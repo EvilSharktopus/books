@@ -35,6 +35,7 @@ export interface BookFields {
   cried: boolean;
   type: string;
   authorCountry: string;
+  authorGender: string; // "Male" | "Female" | ""
   language: string;
   originalLanguage: string; // set when language is "Translated"
   season: string; // Spring | Summer | Autumn | Winter | ""
@@ -113,6 +114,7 @@ export async function listBooks(userId: string): Promise<BookDoc[]> {
       cried: (data.cried as boolean) ?? false,
       type: (data.type as string) ?? "",
       authorCountry: (data.authorCountry as string) ?? "",
+      authorGender: (data.authorGender as string) ?? "",
       language: (data.language as string) ?? "English",
       originalLanguage: (data.originalLanguage as string) ?? "",
       season: (data.season as string) ?? "",

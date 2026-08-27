@@ -69,6 +69,7 @@ export default function TableView({
       : []),
     ...(has("season") ? [{ key: "season", label: "Season", numeric: false, render: (b: BookDoc) => b.season } as Column] : []),
     ...(has("authorCountry") ? [{ key: "authorCountry", label: "Author country", numeric: false, render: (b: BookDoc) => b.authorCountry } as Column] : []),
+    ...(has("authorGender") ? [{ key: "authorGender", label: "Author gender", numeric: false, render: (b: BookDoc) => b.authorGender } as Column] : []),
     ...(has("year") ? [{ key: "year", label: "Year", numeric: true, render: (b: BookDoc) => b.year } as Column] : []),
     ...(has("pages") ? [{ key: "pages", label: "Pages", numeric: true, render: (b: BookDoc) => b.pages } as Column] : []),
     ...(has("cried")

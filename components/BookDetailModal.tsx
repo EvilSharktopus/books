@@ -44,6 +44,7 @@ export default function BookDetailModal({
   if (book.season) fields.push(["Season", book.season]);
   if (book.edition) fields.push(["Edition", book.edition]);
   if (book.authorCountry) fields.push(["Author country", book.authorCountry]);
+  if (book.authorGender) fields.push(["Author gender", book.authorGender]);
   if (book.year) fields.push(["Year", book.year]);
   if (book.pages) fields.push(["Pages", book.pages]);
   if (book.source) fields.push(["Heard from", book.source]);
