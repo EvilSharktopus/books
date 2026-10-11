@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { BookDoc } from "@/lib/books";
+import CoverImage from "./CoverImage";
 
 function formatDate(book: BookDoc): string {
   if (!book.dateAdded) return "";
@@ -96,8 +97,8 @@ export default function BookDetailModal({
         </button>
         <div className="flex gap-4 mb-4">
           {book.cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={book.cover} alt="" className="w-20 h-[120px] object-cover rounded-md border border-gray-200 shrink-0" />
+             
+            <CoverImage src={book.cover} className="w-20 h-[120px] object-cover rounded-md border border-gray-200 shrink-0" />
           ) : (
             <div className="w-20 h-[120px] rounded-md border border-dashed border-gray-300 shrink-0" />
           )}

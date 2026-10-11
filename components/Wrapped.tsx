@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookDoc, listBooks } from "@/lib/books";
 import { placeholderColor } from "./ShelfView";
+import CoverImage from "./CoverImage";
+import { loadCoverImage } from "@/lib/coverUrl";
 
 interface WrappedProps {
   userId: string;
@@ -55,8 +57,7 @@ function Cover({
   style?: React.CSSProperties;
 }) {
   return book.cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={book.cover} alt={book.title} className={`object-cover ${className ?? ""}`} style={style} />
+    <CoverImage src={book.cover} alt={book.title} className={`object-cover ${className ?? ""}`} style={style} />
   ) : (
     <div
       className={`flex items-center justify-center p-1 ${className ?? ""}`}
@@ -151,13 +152,7 @@ async function shareCard(
     let drawn = false;
     if (b.cover) {
       try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject();
-          img.src = b.cover;
-        });
+        const img = await loadCoverImage(b.cover);
         ctx.drawImage(img, x, coverY, cw, ch);
         drawn = true;
       } catch {

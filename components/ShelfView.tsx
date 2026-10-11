@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BookDoc } from "@/lib/books";
 import { FieldDef } from "./useFilteredBooks";
+import CoverImage from "./CoverImage";
 
 // Deterministic placeholder color from the title, stable across renders
 const PLACEHOLDER_COLORS = [
@@ -26,8 +27,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 function CoverArt({ book }: { book: BookDoc }) {
   return book.cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={book.cover} alt={book.title} className="w-full h-full object-cover" loading="lazy" />
+    <CoverImage src={book.cover} alt={book.title} className="w-full h-full object-cover" lazy />
   ) : (
     <div
       className="w-full h-full flex items-center justify-center p-2"

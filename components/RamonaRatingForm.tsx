@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useBookSearch, BookResult } from "./useBookSearch";
 import { KidsBookFields, KidsBookDoc } from "@/lib/kidsBooks";
+import CoverImage from "./CoverImage";
 
 export const ART_STYLES_CONFIG = [
   { key: "cartoony", label: "Cartoony & silly", example: "Cat Kid Comic Club" },
@@ -186,7 +187,7 @@ export default function RamonaRatingForm({
                     className="w-full text-left px-4 py-2 hover:bg-yellow-100 border-b-2 border-gray-900 flex gap-3 items-center"
                   >
                     {book.cover ? (
-                      <img src={book.cover} alt="" className="w-8 h-10 object-cover border border-gray-900 rounded" />
+                      <CoverImage src={book.cover} size="thumb" className="w-8 h-10 object-cover border border-gray-900 rounded" />
                     ) : (
                       <div className="w-8 h-10 bg-gray-200 border border-gray-900 rounded flex items-center justify-center text-xs">📖</div>
                     )}
@@ -215,7 +216,7 @@ export default function RamonaRatingForm({
 
         {values.coverUrl && (
           <div className="mt-2 flex gap-3 items-center">
-            <img
+            <CoverImage
               src={values.coverUrl}
               alt="Preview"
               className="w-16 h-20 object-cover border-3 border-gray-900 rounded shadow-md transform rotate-2"

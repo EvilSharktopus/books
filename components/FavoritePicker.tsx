@@ -5,6 +5,7 @@ import { BookDoc, BookFields, addBook, updateBook } from "@/lib/books";
 import { useBookSearch, BookResult } from "./useBookSearch";
 import { placeholderColor } from "./ShelfView";
 import RatingForm from "./RatingForm";
+import CoverImage from "./CoverImage";
 
 interface FavoritePickerProps {
   userId: string;
@@ -19,8 +20,8 @@ const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 function SmallCover({ cover, title }: { cover: string; title: string }) {
   return cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={cover} alt="" className="w-9 h-14 object-cover rounded shrink-0 border border-gray-200" />
+     
+    <CoverImage src={cover} className="w-9 h-14 object-cover rounded shrink-0 border border-gray-200" />
   ) : (
     <div
       className="w-9 h-14 rounded shrink-0 flex items-center justify-center p-0.5"

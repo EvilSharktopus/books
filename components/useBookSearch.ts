@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { storableCover } from "@/lib/coverUrl";
 
 export interface BookResult {
   id: string;
@@ -20,7 +21,7 @@ interface GoogleVolume {
     authors?: string[];
     publishedDate?: string;
     pageCount?: number;
-    imageLinks?: { smallThumbnail?: string };
+    imageLinks?: { thumbnail?: string; smallThumbnail?: string };
     averageRating?: number;
   };
 }
@@ -72,11 +73,11 @@ export async function searchBooks(
         authors: b.volumeInfo?.authors?.join(", ") ?? "",
         year: b.volumeInfo?.publishedDate?.slice(0, 4) ?? "",
         pages: b.volumeInfo?.pageCount ? String(b.volumeInfo.pageCount) : "",
-        cover:
-          b.volumeInfo?.imageLinks?.smallThumbnail?.replace(
-            "http://",
-            "https://"
-          ) ?? "",
+        cover: storableCover(
+          b.volumeInfo?.imageLinks?.thumbnail ??
+            b.volumeInfo?.imageLinks?.smallThumbnail ??
+            ""
+        ),
         avgRating: b.volumeInfo?.averageRating ?? null,
         source: "Google Books",
       }));
@@ -97,7 +98,7 @@ export async function searchBooks(
       year: d.first_publish_year ? String(d.first_publish_year) : "",
       pages: d.number_of_pages_median ? String(d.number_of_pages_median) : "",
       cover: d.cover_i
-        ? `https://covers.openlibrary.org/b/id/${d.cover_i}-S.jpg`
+        ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`
         : "",
       avgRating: d.ratings_average
         ? Math.round(d.ratings_average * 10) / 10

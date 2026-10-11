@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { searchBooks } from "@/components/useBookSearch";
 import { addBook } from "@/lib/books";
 import type { AppUser, BookFields } from "@/lib/books";
+import CoverImage from "./CoverImage";
 
 interface Candidate {
   key: string;
@@ -292,8 +293,8 @@ export default function BulkPhotoAdd({ user, onDone }: BulkPhotoAddProps) {
                 {c.enriching ? (
                   <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
                 ) : c.cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.cover} alt="" className="w-full h-full object-cover" />
+                   
+                  <CoverImage src={c.cover} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-lg text-gray-300">📕</span>
                 )}

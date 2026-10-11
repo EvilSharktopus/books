@@ -6,6 +6,8 @@ import { useBookSearch, BookResult } from "@/components/useBookSearch";
 import { useLocalStorage } from "@/components/useLocalStorage";
 import type { AppUser, BookDoc, BookFields } from "@/lib/books";
 import RecommendModal from "@/components/RecommendModal";
+import CoverImage from "@/components/CoverImage";
+import { storableCover } from "@/lib/coverUrl";
 
 const EMPTY_VALUES: BookFields = {
   title: "",
@@ -172,8 +174,9 @@ export default function RatingForm({
       const options: EditionOption[] = [];
       for (const item of data.items ?? []) {
         const v = item.volumeInfo ?? {};
-        const cover = (v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? "")
-          .replace("http://", "https://");
+        const cover = storableCover(
+          v.imageLinks?.thumbnail ?? v.imageLinks?.smallThumbnail ?? ""
+        );
         if (!cover || seen.has(cover)) continue;
         seen.add(cover);
         const label = [v.publisher, v.publishedDate?.slice(0, 4)]
@@ -328,8 +331,8 @@ export default function RatingForm({
                       selected ? "border-blue-600 bg-blue-50" : "border-transparent hover:border-blue-300"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ed.cover} alt={ed.label} className="w-14 h-[84px] object-cover rounded" />
+                    { }
+                    <CoverImage src={ed.cover} alt={ed.label} className="w-14 h-[84px] object-cover rounded" />
                     <span className="block text-[10px] text-gray-500 max-w-14 truncate mt-0.5">{ed.label}</span>
                   </button>
                 );

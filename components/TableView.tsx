@@ -2,6 +2,7 @@
 
 import { BookDoc } from "@/lib/books";
 import { FieldDef, SortState } from "./useFilteredBooks";
+import CoverImage from "./CoverImage";
 
 interface Column {
   key: string;
@@ -40,8 +41,8 @@ export default function TableView({
       render: (b) => (
         <span className="flex items-center gap-2 min-w-0">
           {b.cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={b.cover} alt="" className="w-6 h-9 object-cover rounded-sm shrink-0" loading="lazy" />
+             
+            <CoverImage src={b.cover} size="thumb" className="w-6 h-9 object-cover rounded-sm shrink-0" lazy />
           ) : (
             <span className="w-6 h-9 rounded-sm bg-gray-100 border border-dashed border-gray-200 shrink-0" />
           )}

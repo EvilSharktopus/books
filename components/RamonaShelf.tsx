@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { KidsBookDoc, saveRamonaPalette } from "@/lib/kidsBooks";
 import { ART_STYLES_CONFIG } from "./RamonaRatingForm";
+import CoverImage from "./CoverImage";
 
 interface RamonaShelfProps {
   userId: string;
@@ -276,7 +277,7 @@ export default function RamonaShelf({
                 {/* Book Cover */}
                 <div className="flex-shrink-0 w-full sm:w-44 flex justify-center items-center">
                   {splashBook.coverUrl ? (
-                    <img
+                    <CoverImage
                       src={splashBook.coverUrl}
                       alt={splashBook.title}
                       className="w-40 h-52 object-cover border-4 border-gray-900 rounded shadow-md transform -rotate-1"
@@ -347,7 +348,7 @@ export default function RamonaShelf({
                 {/* Book Cover */}
                 <div className="aspect-[3/4] w-full bg-gray-100 border-3 border-gray-900 rounded overflow-hidden shadow-sm relative">
                   {book.coverUrl ? (
-                    <img
+                    <CoverImage
                       src={book.coverUrl}
                       alt={book.title}
                       className="w-full h-full object-cover"
@@ -418,7 +419,7 @@ export default function RamonaShelf({
                       {slot.read ? (
                         <div className="w-full h-full p-1 relative flex items-center justify-center">
                           {slot.book?.coverUrl ? (
-                            <img src={slot.book.coverUrl} alt="" className="w-full h-full object-cover rounded border border-gray-300" />
+                            <CoverImage src={slot.book.coverUrl} className="w-full h-full object-cover rounded border border-gray-300" />
                           ) : (
                             <span className="text-lg">✅</span>
                           )}

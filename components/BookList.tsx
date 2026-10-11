@@ -12,6 +12,7 @@ import FavoritePicker from "./FavoritePicker";
 import RecommendModal from "./RecommendModal";
 import { listSentForBook } from "@/lib/recommendations";
 import { useLocalStorage } from "./useLocalStorage";
+import CoverImage from "./CoverImage";
 
 // Dropdown sort options; table-header sorts outside this set show "Custom"
 const SORT_OPTIONS: { id: string; label: string; sort: SortState }[] = [
@@ -383,10 +384,9 @@ export default function BookList({ userId, userName }: BookListProps) {
                   className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-gray-50"
                 >
                   {book.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <CoverImage
                       src={book.cover}
-                      alt=""
+                      size="thumb"
                       className="w-8 h-12 object-cover rounded-sm border border-gray-200 shrink-0"
                     />
                   ) : (
@@ -421,8 +421,8 @@ export default function BookList({ userId, userName }: BookListProps) {
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-3">
                           {draft.cover ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={draft.cover} alt="" className="w-10 h-[60px] object-cover rounded border border-gray-200 shrink-0" />
+                             
+                            <CoverImage src={draft.cover} className="w-10 h-[60px] object-cover rounded border border-gray-200 shrink-0" />
                           ) : (
                             <div className="w-10 h-[60px] rounded border border-dashed border-gray-300 shrink-0" />
                           )}

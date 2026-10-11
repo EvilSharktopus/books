@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BookDoc, updateBook } from "@/lib/books";
+import { storableCover } from "@/lib/coverUrl";
 
 export interface BackfillProgress {
   total: number;
@@ -60,8 +61,9 @@ async function googleLookup(
   if (!item) return null;
   const v = item.volumeInfo;
   return {
-    cover: (v.imageLinks.thumbnail ?? v.imageLinks.smallThumbnail ?? "")
-      .replace("http://", "https://"),
+    cover: storableCover(
+      v.imageLinks.thumbnail ?? v.imageLinks.smallThumbnail ?? ""
+    ),
     avgRating: v.averageRating ?? null,
   };
 }
@@ -85,7 +87,7 @@ async function openLibraryLookup(
   const doc = (data.docs ?? []).find((d: { cover_i?: number }) => d.cover_i);
   if (!doc) return null;
   return {
-    cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
+    cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`,
     avgRating: doc.ratings_average
       ? Math.round(doc.ratings_average * 10) / 10
       : null,

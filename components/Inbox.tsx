@@ -9,11 +9,12 @@ import {
 } from "@/lib/recommendations";
 import RatingForm from "./RatingForm";
 import { placeholderColor } from "./ShelfView";
+import CoverImage from "./CoverImage";
 
 function Thumb({ cover, title }: { cover: string | null; title: string }) {
   return cover ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={cover} alt="" className="w-10 h-[60px] object-cover rounded border border-gray-200 shrink-0" />
+     
+    <CoverImage src={cover} className="w-10 h-[60px] object-cover rounded border border-gray-200 shrink-0" />
   ) : (
     <div
       className="w-10 h-[60px] rounded shrink-0 flex items-center justify-center p-0.5"
