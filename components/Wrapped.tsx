@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookDoc, listBooks } from "@/lib/books";
+import { BookDoc, listBooks, listUsers } from "@/lib/books";
 import { placeholderColor } from "./ShelfView";
 import CoverImage from "./CoverImage";
 import { loadCoverImage } from "@/lib/coverUrl";
@@ -26,17 +26,48 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+// Words that say nothing about the books themselves: grammar, filler,
+// hedges and generic reading vocabulary. Contractions ("didn't") are
+// dropped separately, so they don't need listing here.
 const STOPWORDS = new Set(
-  `the a an and or but if then than that this these those it its was were is are be been being i me my we our you your he she his her they them their of in on at to for with about from as by not no so very just really quite also too do did does done have has had having would could should will can may might must there here what which who whom whose when where why how all any both each few more most other some such only own same then once because while during before after above below again further out over under up down off it's i'm don't didn't wasn't isn't aren't couldn't wouldn't shouldn't book books read reading felt feel like liked one two first bit lot got get much many still though even ever never way things thing make made think thought found end story writing written author characters character plot little good great really enjoyed loved love`.split(/\s+/)
+  `the a an and or but if then than that this these those it its was were is are be been being i me my we our you your he she his her they them their of in on at to for with about from as by not no so very just really quite also too do did does done have has had having would could should will can may might must there here what which who whom whose when where why how all any both each few more most other some such only own same once because while during before after above below again further out over under up down off into onto upon within without through throughout until since around across along toward towards book books read reading reread felt feel feels feeling like liked one two three first second last next bit lot lots got get gets getting much many still though although even ever never always often sometimes way ways things thing make makes made making think thought found find end ending story stories writing written write writes author authors characters character plot little good great enjoyed loved love sort kind kinds maybe sure actually mostly normally usually probably definitely certainly especially totally completely slightly somewhat fairly highly truly simply basically pretty rather enough almost already well okay fine overall part parts time times day days year years long short wanted want wants know knew known seem seems seemed keep kept need needs look looked looking said says tell told going goes went come came comes coming take took give gave works work worked working picked pick recommend recommended recommendation idea point reason ones side half whole else another every everything something nothing anything someone everyone people person mind stuff left right turn turned turns follow followed hear heard draw drawn different interesting enjoy`.split(/\s+/)
 );
 
-function wordCloud(books: BookDoc[]): { word: string; count: number }[] {
+// Plural/singular pairs that should count as one word in the cloud.
+const IRREGULAR: Record<string, string> = {
+  women: "woman", men: "man", lives: "life", children: "child",
+  wives: "wife", people: "person",
+};
+
+function wordCloud(
+  books: BookDoc[],
+  exclude: Set<string>
+): { word: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const b of books) {
-    for (const raw of (b.notes || "").toLowerCase().split(/[^a-z']+/)) {
-      const w = raw.replace(/^'+|'+$/g, "");
-      if (w.length < 4 || STOPWORDS.has(w)) continue;
+    const text = (b.notes || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // é → e
+      .replace(/[\u2018\u2019\u02bc`]/g, "'"); // curly apostrophes
+    // Count each word once per review, so the cloud shows what recurs
+    // across books rather than one review repeating itself.
+    const seen = new Set<string>();
+    for (const raw of text.split(/[^a-z']+/)) {
+      let w = raw.replace(/^'+|'+$/g, "").replace(/'s$/, "");
+      if (w.includes("'")) continue; // contraction: didn't, I'm, wasn't…
+      w = IRREGULAR[w] ?? w;
+      if (w.length < 4 || STOPWORDS.has(w) || exclude.has(w) || seen.has(w)) continue;
+      seen.add(w);
       counts.set(w, (counts.get(w) ?? 0) + 1);
+    }
+  }
+  // Fold simple plurals into their singular when both appear ("parts" → "part").
+  for (const [w, c] of [...counts]) {
+    const base = w.endsWith("s") ? w.slice(0, -1) : null;
+    if (base && counts.has(base)) {
+      counts.set(base, (counts.get(base) ?? 0) + c);
+      counts.delete(w);
     }
   }
   return [...counts.entries()]
@@ -44,6 +75,51 @@ function wordCloud(books: BookDoc[]): { word: string; count: number }[] {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 36)
     .map(([word, count]) => ({ word, count }));
+}
+
+// --- Books read by more than one person -----------------------------------
+
+function normTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2018\u2019'`]/g, "")
+    .split(/[:(]/)[0] // drop subtitles
+    .replace(/^(the|a|an)\s+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function authorTokens(authors: string): Set<string> {
+  return new Set(
+    authors
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z]+/)
+      .filter((t) => t.length >= 3)
+  );
+}
+
+/** Same book? Title must match; authors must share a name when both are known
+ *  (so "The Strangers" by Vermette ≠ "Strangers" by Burden, but
+ *  "Liza Ridzen" = "Lisa Ridzen"). */
+function sameBook(a: BookDoc, b: BookDoc): boolean {
+  if (!a.title || normTitle(a.title) !== normTitle(b.title)) return false;
+  if (!a.authors.trim() || !b.authors.trim()) return true;
+  const ta = authorTokens(a.authors);
+  return [...authorTokens(b.authors)].some((t) => ta.has(t));
+}
+
+interface SharedRead {
+  mine: BookDoc;
+  theirs: BookDoc;
+}
+
+interface OtherReader {
+  name: string;
+  shared: SharedRead[];
 }
 
 /** Cover image, or a colored placeholder block with the title. */
@@ -226,6 +302,8 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const year = new Date().getFullYear();
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [favAdded, setFavAdded] = useState<BookDoc[]>([]);
+  const [others, setOthers] = useState<OtherReader[]>([]);
+  const [readerNames, setReaderNames] = useState<Set<string>>(new Set());
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [slide, setSlide] = useState(0);
   const [sharing, setSharing] = useState(false);
@@ -251,6 +329,44 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         );
       })
       .catch(() => setBooks([]));
+  }, [userId, year]);
+
+  // Everyone else's shelves, to find books two readers have in common. A
+  // pair counts if either reader logged it this year. Failures here only
+  // hide the slide.
+  useEffect(() => {
+    let cancelled = false;
+    const inYear = (b: BookDoc) =>
+      !!b.dateAdded && b.dateAdded.toDate().getFullYear() === year;
+    (async () => {
+      const users = await listUsers();
+      if (cancelled) return;
+      setReaderNames(
+        new Set(users.flatMap((u) => u.name.toLowerCase().split(/\s+/)))
+      );
+      const shelves = await Promise.all(
+        users.map(async (u) => ({ user: u, books: await listBooks(u.id) }))
+      );
+      if (cancelled) return;
+      const mine = (shelves.find((s) => s.user.id === userId)?.books ?? []).filter(
+        (b) => !b.favoriteOnly
+      );
+      const result: OtherReader[] = [];
+      for (const { user, books: theirBooks } of shelves) {
+        if (user.id === userId) continue;
+        const shared: SharedRead[] = [];
+        for (const m of mine) {
+          const t = theirBooks.find((tb) => !tb.favoriteOnly && sameBook(m, tb));
+          if (t && (inYear(m) || inYear(t))) shared.push({ mine: m, theirs: t });
+        }
+        if (shared.length) result.push({ name: user.name, shared });
+      }
+      result.sort((a, b) => b.shared.length - a.shared.length);
+      setOthers(result);
+    })().catch((err) => console.warn("[wrapped] shared reads unavailable:", err));
+    return () => {
+      cancelled = true;
+    };
   }, [userId, year]);
 
   const stats = useMemo(() => {
@@ -282,10 +398,15 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       translated: books.filter((b) => b.language && b.language !== "English").length,
       bestMonth,
       bestMonthCount: monthCounts[bestMonth],
-      cloud: wordCloud(books),
+      // Leave out readers' and authors' names: they're not what the books were about.
+      cloud: wordCloud(
+        books,
+        new Set([...readerNames, ...books.flatMap((b) => [...authorTokens(b.authors)])])
+      ),
+      pagesKnown: books.filter((b) => parseInt(b.pages, 10) > 0).length,
       withCovers: books.filter((b) => b.cover),
     };
-  }, [books]);
+  }, [books, readerNames]);
 
   // Fetch Claude-generated fun facts once stats are ready
   useEffect(() => {
@@ -344,8 +465,11 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <p className="text-xl text-white font-semibold mb-3">book{stats.count === 1 ? "" : "s"}</p>
         {stats.pages > 0 && (
           <p className="text-white/70 text-sm">
-            <span className="text-white font-bold">{stats.pages.toLocaleString()}</span> pages —
-            about <span className="text-white font-bold">{Math.round(stats.pages / 300)}</span> paperbacks&apos; worth.
+            {stats.pagesKnown < stats.count ? "At least " : ""}
+            <span className="text-white font-bold">{stats.pages.toLocaleString()}</span>
+            {" pages — about "}
+            <span className="text-white font-bold">{Math.max(1, Math.round(stats.pages / 300))}</span>
+            {" paperbacks' worth."}
           </p>
         )}
       </div>
@@ -397,6 +521,70 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <FeaturedBooks books={stats.lowest} />
       </div>
     );
+
+    for (const other of others) {
+      const rows = [...other.shared].sort(
+        (a, b) =>
+          Math.abs(b.mine.myRating - b.theirs.myRating) -
+          Math.abs(a.mine.myRating - a.theirs.myRating)
+      );
+      const rated = rows.filter((r) => r.mine.myRating > 0 && r.theirs.myRating > 0);
+      const agreed = rated.filter(
+        (r) => Math.abs(r.mine.myRating - r.theirs.myRating) <= 1
+      ).length;
+      const split = rated[0] && Math.abs(rated[0].mine.myRating - rated[0].theirs.myRating) >= 2
+        ? rated[0]
+        : null;
+      s.push(
+        <div key={`shared-${other.name}`} className="w-full">
+          <p className="text-white/70 mb-1">👯 Books you and {other.name} both read</p>
+          <p className="text-white/50 text-xs mb-5">
+            {rated.length > 0 &&
+              `You agreed within a point on ${agreed} of ${rated.length}.`}
+          </p>
+          <div className="flex flex-col gap-2.5 max-w-sm mx-auto text-left">
+            {rows.slice(0, 5).map(({ mine, theirs }, i) => (
+              <div
+                key={mine.id}
+                className="flex items-center gap-3 bg-white/10 rounded-xl p-2 wrapped-pop"
+                style={{ animationDelay: `${i * 110}ms` }}
+              >
+                <Cover book={mine.cover ? mine : theirs} className="w-10 h-[60px] rounded shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm font-semibold truncate">{mine.title}</p>
+                  <p className="text-white/50 text-[11px] truncate">{mine.authors || theirs.authors}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0 text-center">
+                  <div className="w-12">
+                    <p className="text-amber-300 font-extrabold text-lg leading-none">
+                      {mine.myRating || "–"}
+                    </p>
+                    <p className="text-white/50 text-[10px] mt-1">You</p>
+                  </div>
+                  <div className="w-12">
+                    <p className="text-sky-300 font-extrabold text-lg leading-none">
+                      {theirs.myRating || "–"}
+                    </p>
+                    <p className="text-white/50 text-[10px] mt-1 truncate">{other.name}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {rows.length > 5 && (
+            <p className="text-white/50 text-xs mt-3">…and {rows.length - 5} more</p>
+          )}
+          {split && (
+            <p className="text-white/70 text-sm mt-5">
+              Biggest split: <span className="text-white font-semibold">{split.mine.title}</span>
+              {split.mine.myRating > split.theirs.myRating
+                ? ` — you liked it more.`
+                : ` — ${other.name} liked it more.`}
+            </p>
+          )}
+        </div>
+      );
+    }
 
     if (stats.cloud.length >= 8) {
       s.push(
@@ -501,7 +689,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     );
 
     return s;
-  }, [stats, facts, favAdded, userName, year, books, sharing]);
+  }, [stats, facts, favAdded, others, userName, year, books, sharing]);
 
   const next = useCallback(() => {
     setSlide((s) => (s < slides.length - 1 ? s + 1 : s));

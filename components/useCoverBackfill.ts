@@ -13,26 +13,39 @@ export interface BackfillProgress {
 }
 
 // Book ids we already tried and found nothing for, so page reloads don't
-// re-query the same misses forever (persisted per browser).
+// re-query the same misses forever (persisted per browser). Covers and page
+// counts are tracked separately: a book can have one without the other.
 const MISS_KEY = "bookRatings.coverMisses.v6";
+const PAGES_MISS_KEY = "bookRatings.pagesMisses.v1";
 
-function loadMisses(): Set<string> {
+function loadMisses(key: string): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(MISS_KEY) ?? "[]"));
+    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]"));
   } catch {
     return new Set();
   }
 }
 
-function saveMiss(id: string) {
-  const misses = loadMisses();
-  misses.add(id);
-  localStorage.setItem(MISS_KEY, JSON.stringify([...misses]));
+function saveMiss(key: string, id: string) {
+  try {
+    const misses = loadMisses(key);
+    misses.add(id);
+    localStorage.setItem(key, JSON.stringify([...misses]));
+  } catch {
+    // storage unavailable — we'll just retry next visit
+  }
 }
 
 interface CoverHit {
   cover: string;
   avgRating: number | null;
+  pages: string; // "" when the source didn't know
+}
+
+export interface FilledFields {
+  cover?: string;
+  avgRating?: number;
+  pages?: string;
 }
 
 // Thrown when the API request itself failed (rate limit, network) — the
@@ -61,6 +74,7 @@ async function googleLookup(
   if (!item) return null;
   const v = item.volumeInfo;
   return {
+    pages: v.pageCount ? String(v.pageCount) : "",
     cover: storableCover(
       v.imageLinks.thumbnail ?? v.imageLinks.smallThumbnail ?? ""
     ),
@@ -76,7 +90,7 @@ async function openLibraryLookup(
   const params = new URLSearchParams({
     title,
     limit: "20",
-    fields: "cover_i,ratings_average",
+    fields: "cover_i,ratings_average,number_of_pages_median",
   });
   if (author) params.set("author", author);
   const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
@@ -84,9 +98,19 @@ async function openLibraryLookup(
   });
   if (!res.ok) throw new LookupFailed(`openlibrary ${res.status}`);
   const data = await res.json();
-  const doc = (data.docs ?? []).find((d: { cover_i?: number }) => d.cover_i);
+  const docs: {
+    cover_i?: number;
+    ratings_average?: number;
+    number_of_pages_median?: number;
+  }[] = data.docs ?? [];
+  const doc = docs.find((d) => d.cover_i);
   if (!doc) return null;
+  // The cover edition often lacks a page count; borrow the first match's.
+  const pages =
+    doc.number_of_pages_median ??
+    docs.find((d) => d.number_of_pages_median)?.number_of_pages_median;
   return {
+    pages: pages ? String(pages) : "",
     cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`,
     avgRating: doc.ratings_average
       ? Math.round(doc.ratings_average * 10) / 10
@@ -141,12 +165,67 @@ async function findCover(
   return null;
 }
 
-// Quietly fills in missing covers while the list is open: one lookup at a
-// time, saved to Firestore and reflected in the list as they land.
+// Page count only (the book already has a cover). Open Library first since
+// it has no daily quota, Google Books as the fallback. Same null/throw
+// contract as findCover.
+async function findPages(
+  title: string,
+  authors: string,
+  signal: AbortSignal
+): Promise<string | null> {
+  const clean = cleanTitle(title);
+  const attempts: (() => Promise<string | null>)[] = [
+    () => openLibraryPages(title, authors, signal),
+    () => openLibraryPages(clean, "", signal),
+    async () =>
+      (await googleLookup(`intitle:"${clean}" ${authors}`.trim(), signal))
+        ?.pages || null,
+  ];
+  let anySucceeded = false;
+  for (const attempt of attempts) {
+    if (signal.aborted) throw new DOMException("aborted", "AbortError");
+    try {
+      const pages = await attempt();
+      anySucceeded = true;
+      if (pages) return pages;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  if (!anySucceeded) throw new LookupFailed("all sources failed");
+  return null;
+}
+
+async function openLibraryPages(
+  title: string,
+  author: string,
+  signal: AbortSignal
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    title,
+    limit: "10",
+    fields: "number_of_pages_median",
+  });
+  if (author) params.set("author", author);
+  const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
+    signal,
+  });
+  if (!res.ok) throw new LookupFailed(`openlibrary ${res.status}`);
+  const data = await res.json();
+  const doc = (data.docs ?? []).find(
+    (d: { number_of_pages_median?: number }) => d.number_of_pages_median
+  );
+  return doc ? String(doc.number_of_pages_median) : null;
+}
+
+// Quietly fills in missing covers and page counts while the list is open:
+// one lookup at a time, saved to Firestore and reflected in the list as
+// they land.
 export function useCoverBackfill(
   userId: string,
   books: BookDoc[] | null,
-  onCoverFound: (bookId: string, cover: string, avgRating: number | null) => void
+  onFilled: (bookId: string, fields: FilledFields) => void
 ): BackfillProgress | null {
   const [progress, setProgress] = useState<BackfillProgress | null>(null);
   const running = useRef(false);
@@ -159,8 +238,19 @@ export function useCoverBackfill(
   useEffect(() => {
     const snapshot = booksRef.current;
     if (!hasBooks || !snapshot || running.current) return;
-    const misses = loadMisses();
-    const queue = snapshot.filter((b) => !b.cover && b.title && !misses.has(b.id));
+    const coverMisses = loadMisses(MISS_KEY);
+    const pageMisses = loadMisses(PAGES_MISS_KEY);
+    const needsCover = (b: BookDoc) => !b.cover && !coverMisses.has(b.id);
+    const needsPages = (b: BookDoc) =>
+      !b.pages && !b.favoriteOnly && !pageMisses.has(b.id);
+    // Newest first, so this year's books (the ones Wrapped counts) are
+    // filled before the long tail of imported backlog entries.
+    const queue = snapshot
+      .filter((b) => b.title && (needsCover(b) || needsPages(b)))
+      .sort(
+        (a, b) =>
+          (b.dateAdded?.toMillis() ?? 0) - (a.dateAdded?.toMillis() ?? 0)
+      );
     if (queue.length === 0) return;
 
     running.current = true;
@@ -177,18 +267,29 @@ export function useCoverBackfill(
     (async () => {
       for (const book of queue) {
         try {
-          const hit = await findCover(book.title, book.authors, controller.signal);
+          const fields: FilledFields = {};
+          if (needsCover(book)) {
+            const hit = await findCover(book.title, book.authors, controller.signal);
+            if (hit?.cover) {
+              fields.cover = hit.cover;
+              if (hit.avgRating != null && book.avgRating == null)
+                fields.avgRating = hit.avgRating;
+              if (hit.pages && !book.pages) fields.pages = hit.pages;
+            } else {
+              // Searches ran and found nothing — a real miss, don't retry.
+              saveMiss(MISS_KEY, book.id);
+            }
+          }
+          if (needsPages(book) && !fields.pages) {
+            const pages = await findPages(book.title, book.authors, controller.signal);
+            if (pages) fields.pages = pages;
+            else saveMiss(PAGES_MISS_KEY, book.id);
+          }
           if (controller.signal.aborted) return;
-          if (hit?.cover) {
-            const fields: { cover: string; avgRating?: number } = { cover: hit.cover };
-            if (hit.avgRating != null && book.avgRating == null)
-              fields.avgRating = hit.avgRating;
+          if (Object.keys(fields).length > 0) {
             await updateBook(userId, book.id, fields);
-            onCoverFound(book.id, hit.cover, fields.avgRating ?? null);
+            onFilled(book.id, fields);
             state.found++;
-          } else {
-            // Searches ran and found nothing — a real miss, don't retry.
-            saveMiss(book.id);
           }
           state.done++;
           setProgress({ ...state });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BookDoc, BookFields, deleteBook, listBooks, setFavorite, updateBook } from "@/lib/books";
-import { useCoverBackfill } from "./useCoverBackfill";
+import { FilledFields, useCoverBackfill } from "./useCoverBackfill";
 import { hasAnyFilter, EMPTY_FILTERS, useFilteredBooks, SortState } from "./useFilteredBooks";
 import BookFilters from "./BookFilters";
 import ShelfView from "./ShelfView";
@@ -130,21 +130,12 @@ export default function BookList({ userId, userName }: BookListProps) {
     };
   }, [userId]);
 
-  const onCoverFound = useCallback(
-    (bookId: string, cover: string, avgRating: number | null) => {
-      setBooks((prev) =>
-        prev
-          ? prev.map((b) =>
-              b.id === bookId
-                ? { ...b, cover, avgRating: avgRating ?? b.avgRating }
-                : b
-            )
-          : prev
-      );
-    },
-    []
-  );
-  const coverProgress = useCoverBackfill(userId, books, onCoverFound);
+  const onFilled = useCallback((bookId: string, fields: FilledFields) => {
+    setBooks((prev) =>
+      prev ? prev.map((b) => (b.id === bookId ? { ...b, ...fields } : b)) : prev
+    );
+  }, []);
+  const coverProgress = useCoverBackfill(userId, books, onFilled);
 
   const visible = filtered;
 
@@ -327,8 +318,8 @@ export default function BookList({ userId, userName }: BookListProps) {
       {coverProgress && (
         <p className="text-xs text-gray-400">
           {coverProgress.finished
-            ? `Cover lookup finished: found ${coverProgress.found} of ${coverProgress.total} missing covers.`
-            : `Looking up missing covers… ${coverProgress.done}/${coverProgress.total} (${coverProgress.found} found)`}
+            ? `Lookup finished: filled in details for ${coverProgress.found} of ${coverProgress.total} books.`
+            : `Looking up missing covers and page counts… ${coverProgress.done}/${coverProgress.total} (${coverProgress.found} filled)`}
           {coverProgress.lastError && ` — last error: ${coverProgress.lastError}`}
         </p>
       )}
