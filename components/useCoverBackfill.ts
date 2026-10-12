@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BookDoc, updateBook } from "@/lib/books";
+import { authorsOverlap, plausiblePages } from "@/lib/bookMatch";
 import { storableCover } from "@/lib/coverUrl";
 
 export interface BackfillProgress {
@@ -16,7 +17,7 @@ export interface BackfillProgress {
 // re-query the same misses forever (persisted per browser). Covers and page
 // counts are tracked separately: a book can have one without the other.
 const MISS_KEY = "bookRatings.coverMisses.v6";
-const PAGES_MISS_KEY = "bookRatings.pagesMisses.v1";
+const DETAILS_MISS_KEY = "bookRatings.detailsMisses.v1"; // pages + year
 
 function loadMisses(key: string): Set<string> {
   try {
@@ -40,12 +41,20 @@ interface CoverHit {
   cover: string;
   avgRating: number | null;
   pages: string; // "" when the source didn't know
+  year: string; // first publication year where known, else ""
+}
+
+/** A plausible publication year, or "" (indexes contain junk like 0 or 9999). */
+function cleanYear(y: number | string | undefined | null): string {
+  const n = typeof y === "string" ? parseInt(y.slice(0, 4), 10) : (y ?? NaN);
+  return n >= 1000 && n <= new Date().getFullYear() + 1 ? String(n) : "";
 }
 
 export interface FilledFields {
   cover?: string;
   avgRating?: number;
   pages?: string;
+  year?: string;
 }
 
 // Thrown when the API request itself failed (rate limit, network) — the
@@ -58,9 +67,13 @@ function cleanTitle(title: string): string {
   return title.split(/[:(]|\s-\s/)[0].replace(/\s+/g, " ").trim();
 }
 
+// `authors` is the book's own author string, used to decide whether the
+// match is trustworthy enough to take its page count and year from (covers
+// keep the looser behaviour they've always had).
 async function googleLookup(
   q: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  authors = ""
 ): Promise<CoverHit | null> {
   const res = await fetch(
     `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`,
@@ -73,8 +86,11 @@ async function googleLookup(
   );
   if (!item) return null;
   const v = item.volumeInfo;
+  const trusted = authorsOverlap(authors, v.authors);
   return {
-    pages: v.pageCount ? String(v.pageCount) : "",
+    pages: trusted ? plausiblePages(v.pageCount) : "",
+    // Google's date is the edition's, so it's only a fallback for year.
+    year: trusted ? cleanYear(v.publishedDate) : "",
     cover: storableCover(
       v.imageLinks.thumbnail ?? v.imageLinks.smallThumbnail ?? ""
     ),
@@ -85,12 +101,13 @@ async function googleLookup(
 async function openLibraryLookup(
   title: string,
   author: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  bookAuthors = author
 ): Promise<CoverHit | null> {
   const params = new URLSearchParams({
     title,
     limit: "20",
-    fields: "cover_i,ratings_average,number_of_pages_median",
+    fields: "cover_i,ratings_average,number_of_pages_median,first_publish_year,author_name",
   });
   if (author) params.set("author", author);
   const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
@@ -102,15 +119,21 @@ async function openLibraryLookup(
     cover_i?: number;
     ratings_average?: number;
     number_of_pages_median?: number;
+    first_publish_year?: number;
+    author_name?: string[];
   }[] = data.docs ?? [];
   const doc = docs.find((d) => d.cover_i);
   if (!doc) return null;
-  // The cover edition often lacks a page count; borrow the first match's.
+  // Details only from records by the same author: a title-only search can
+  // land on a different book ("The Young Man" from 1818 vs Ernaux's).
+  const same = docs.filter((d) => authorsOverlap(bookAuthors, d.author_name));
+  const detailDoc = same.includes(doc) ? doc : same[0];
   const pages =
-    doc.number_of_pages_median ??
-    docs.find((d) => d.number_of_pages_median)?.number_of_pages_median;
+    plausiblePages(detailDoc?.number_of_pages_median) ||
+    plausiblePages(same.find((d) => plausiblePages(d.number_of_pages_median))?.number_of_pages_median);
   return {
-    pages: pages ? String(pages) : "",
+    pages,
+    year: cleanYear(detailDoc?.first_publish_year),
     cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`,
     avgRating: doc.ratings_average
       ? Math.round(doc.ratings_average * 10) / 10
@@ -138,15 +161,15 @@ async function findCover(
   // misspelled) author, then subtitle stripped, then general keyword
   // searches, which tolerate typos in the source spreadsheet.
   const attempts: (() => Promise<CoverHit | null>)[] = [
-    () => googleLookup(`intitle:"${title}" ${authors}`.trim(), signal),
+    () => googleLookup(`intitle:"${title}" ${authors}`.trim(), signal, authors),
     () => openLibraryLookup(title, authors, signal),
-    () => openLibraryLookup(title, "", signal),
-    ...(ampSwapped ? [() => openLibraryLookup(ampSwapped, "", signal)] : []),
+    () => openLibraryLookup(title, "", signal, authors),
+    ...(ampSwapped ? [() => openLibraryLookup(ampSwapped, "", signal, authors)] : []),
     ...(clean !== title
-      ? [() => openLibraryLookup(clean, "", signal)]
+      ? [() => openLibraryLookup(clean, "", signal, authors)]
       : []),
-    () => googleLookup(`${clean} ${authors}`.trim(), signal),
-    () => googleLookup(clean, signal),
+    () => googleLookup(`${clean} ${authors}`.trim(), signal, authors),
+    () => googleLookup(clean, signal, authors),
   ];
   let anySucceeded = false;
   for (const attempt of attempts) {
@@ -165,47 +188,57 @@ async function findCover(
   return null;
 }
 
-// Page count only (the book already has a cover). Open Library first since
-// it has no daily quota, Google Books as the fallback. Same null/throw
-// contract as findCover.
-async function findPages(
+interface Details {
+  pages: string;
+  year: string;
+}
+
+// Page count and first-publication year (the book already has a cover).
+// Open Library first: it has no daily quota and its year is the original
+// publication rather than an edition's. Google Books fills remaining gaps.
+// Same null/throw contract as findCover.
+async function findDetails(
   title: string,
   authors: string,
   signal: AbortSignal
-): Promise<string | null> {
+): Promise<Details | null> {
   const clean = cleanTitle(title);
-  const attempts: (() => Promise<string | null>)[] = [
-    () => openLibraryPages(title, authors, signal),
-    () => openLibraryPages(clean, "", signal),
-    async () =>
-      (await googleLookup(`intitle:"${clean}" ${authors}`.trim(), signal))
-        ?.pages || null,
+  const attempts: (() => Promise<Details | null>)[] = [
+    () => openLibraryDetails(title, authors, signal, authors),
+    () => openLibraryDetails(clean, "", signal, authors),
+    () => googleLookup(`intitle:"${clean}" ${authors}`.trim(), signal, authors),
   ];
+  const found: Details = { pages: "", year: "" };
   let anySucceeded = false;
   for (const attempt of attempts) {
     if (signal.aborted) throw new DOMException("aborted", "AbortError");
     try {
-      const pages = await attempt();
+      const hit = await attempt();
       anySucceeded = true;
-      if (pages) return pages;
+      if (hit) {
+        found.pages ||= hit.pages;
+        found.year ||= hit.year;
+      }
+      if (found.pages && found.year) break;
     } catch (e) {
       if ((e as Error).name === "AbortError") throw e;
     }
     await new Promise((r) => setTimeout(r, 250));
   }
   if (!anySucceeded) throw new LookupFailed("all sources failed");
-  return null;
+  return found.pages || found.year ? found : null;
 }
 
-async function openLibraryPages(
+async function openLibraryDetails(
   title: string,
   author: string,
-  signal: AbortSignal
-): Promise<string | null> {
+  signal: AbortSignal,
+  bookAuthors: string
+): Promise<Details | null> {
   const params = new URLSearchParams({
     title,
     limit: "10",
-    fields: "number_of_pages_median",
+    fields: "number_of_pages_median,first_publish_year,author_name",
   });
   if (author) params.set("author", author);
   const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
@@ -213,13 +246,24 @@ async function openLibraryPages(
   });
   if (!res.ok) throw new LookupFailed(`openlibrary ${res.status}`);
   const data = await res.json();
-  const doc = (data.docs ?? []).find(
-    (d: { number_of_pages_median?: number }) => d.number_of_pages_median
-  );
-  return doc ? String(doc.number_of_pages_median) : null;
+  const docs: {
+    number_of_pages_median?: number;
+    first_publish_year?: number;
+    author_name?: string[];
+  }[] = data.docs ?? [];
+  // Only records by the same author count (see openLibraryLookup).
+  const same = docs.filter((d) => authorsOverlap(bookAuthors, d.author_name));
+  if (same.length === 0) return null;
+  return {
+    pages:
+      plausiblePages(same.find((d) => plausiblePages(d.number_of_pages_median))?.number_of_pages_median),
+    // The best match's year, not any match's: later docs are often other books.
+    year: cleanYear(same[0].first_publish_year),
+  };
 }
 
-// Quietly fills in missing covers and page counts while the list is open:
+// Quietly fills in missing covers, page counts and publication years while
+// the list is open:
 // one lookup at a time, saved to Firestore and reflected in the list as
 // they land.
 export function useCoverBackfill(
@@ -239,14 +283,15 @@ export function useCoverBackfill(
     const snapshot = booksRef.current;
     if (!hasBooks || !snapshot || running.current) return;
     const coverMisses = loadMisses(MISS_KEY);
-    const pageMisses = loadMisses(PAGES_MISS_KEY);
+    const detailMisses = loadMisses(DETAILS_MISS_KEY);
     const needsCover = (b: BookDoc) => !b.cover && !coverMisses.has(b.id);
-    const needsPages = (b: BookDoc) =>
-      !b.pages && !b.favoriteOnly && !pageMisses.has(b.id);
+    // Implausible stored page counts (e.g. "10") count as missing so they get replaced.
+    const needsDetails = (b: BookDoc) =>
+      (!plausiblePages(b.pages) || !b.year) && !b.favoriteOnly && !detailMisses.has(b.id);
     // Newest first, so this year's books (the ones Wrapped counts) are
     // filled before the long tail of imported backlog entries.
     const queue = snapshot
-      .filter((b) => b.title && (needsCover(b) || needsPages(b)))
+      .filter((b) => b.title && (needsCover(b) || needsDetails(b)))
       .sort(
         (a, b) =>
           (b.dateAdded?.toMillis() ?? 0) - (a.dateAdded?.toMillis() ?? 0)
@@ -274,16 +319,22 @@ export function useCoverBackfill(
               fields.cover = hit.cover;
               if (hit.avgRating != null && book.avgRating == null)
                 fields.avgRating = hit.avgRating;
-              if (hit.pages && !book.pages) fields.pages = hit.pages;
+              if (hit.pages && !plausiblePages(book.pages)) fields.pages = hit.pages;
+              if (hit.year && !book.year) fields.year = hit.year;
             } else {
               // Searches ran and found nothing — a real miss, don't retry.
               saveMiss(MISS_KEY, book.id);
             }
           }
-          if (needsPages(book) && !fields.pages) {
-            const pages = await findPages(book.title, book.authors, controller.signal);
-            if (pages) fields.pages = pages;
-            else saveMiss(PAGES_MISS_KEY, book.id);
+          const wantPages = !plausiblePages(book.pages) && !fields.pages;
+          const wantYear = !book.year && !fields.year;
+          if (needsDetails(book) && (wantPages || wantYear)) {
+            const found = await findDetails(book.title, book.authors, controller.signal);
+            if (wantPages && found?.pages) fields.pages = found.pages;
+            if (wantYear && found?.year) fields.year = found.year;
+            // The searches ran; whatever is still missing isn't out there.
+            if ((wantPages && !fields.pages) || (wantYear && !fields.year))
+              saveMiss(DETAILS_MISS_KEY, book.id);
           }
           if (controller.signal.aborted) return;
           if (Object.keys(fields).length > 0) {
