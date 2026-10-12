@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookDoc, listBooks, listUsers } from "@/lib/books";
 import { placeholderColor } from "./ShelfView";
 import CoverImage from "./CoverImage";
-import { loadCoverImage } from "@/lib/coverUrl";
+import { normaliseCountry } from "@/lib/countries";
+import { authorTokens, plausiblePages } from "@/lib/bookMatch";
+import { Columns, Donut, RankedBars } from "./WrappedCharts";
 
 interface WrappedProps {
   userId: string;
@@ -89,17 +91,6 @@ function normTitle(title: string): string {
     .replace(/^(the|a|an)\s+/, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-}
-
-function authorTokens(authors: string): Set<string> {
-  return new Set(
-    authors
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .split(/[^a-z]+/)
-      .filter((t) => t.length >= 3)
-  );
 }
 
 /** Same book? Title must match; authors must share a name when both are known
@@ -189,115 +180,6 @@ function FeaturedBooks({ books }: { books: BookDoc[] }) {
   );
 }
 
-/** Draw and share a summary card image. */
-async function shareCard(
-  userName: string,
-  year: number,
-  count: number,
-  avg: number,
-  topBooks: BookDoc[]
-) {
-  const W = 1080, H = 1350;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-
-  const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  grad.addColorStop(0, "#1e1b4b");
-  grad.addColorStop(0.55, "#312e81");
-  grad.addColorStop(1, "#4c1d95");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = "#fcd34d";
-  ctx.font = "bold 46px Georgia, serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`📚 ${year} in Books`, W / 2, 110);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 64px Georgia, serif";
-  ctx.fillText(userName, W / 2, 195);
-
-  // Covers (drawn with CORS; fall back to colored blocks if blocked)
-  const cw = 240, ch = 360, gap = 40;
-  const startX = (W - (cw * 3 + gap * 2)) / 2;
-  const coverY = 280;
-  for (let i = 0; i < Math.min(3, topBooks.length); i++) {
-    const b = topBooks[i];
-    const x = startX + i * (cw + gap);
-    let drawn = false;
-    if (b.cover) {
-      try {
-        const img = await loadCoverImage(b.cover);
-        ctx.drawImage(img, x, coverY, cw, ch);
-        drawn = true;
-      } catch {
-        drawn = false;
-      }
-    }
-    if (!drawn) {
-      ctx.fillStyle = placeholderColor(b.title);
-      ctx.fillRect(x, coverY, cw, ch);
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = "bold 26px Georgia, serif";
-      const words = b.title.split(" ");
-      let line = "", ty = coverY + 80;
-      for (const word of words) {
-        if ((line + " " + word).trim().length > 14) {
-          ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
-          line = word;
-          ty += 36;
-        } else line = `${line} ${word}`;
-      }
-      if (line.trim()) ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
-    }
-    // rating badge
-    ctx.fillStyle = "#fcd34d";
-    ctx.beginPath();
-    ctx.arc(x + cw - 14, coverY + 14, 38, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#1e1b4b";
-    ctx.font = "bold 38px Georgia, serif";
-    ctx.fillText(String(b.myRating), x + cw - 14, coverY + 28);
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = "600 30px Georgia, serif";
-  ctx.fillText("Top rated this year", W / 2, coverY + ch + 64);
-
-  // Stats
-  const statY = 880;
-  ctx.fillStyle = "#fcd34d";
-  ctx.font = "bold 130px Georgia, serif";
-  ctx.fillText(String(count), W / 2 - 220, statY + 120);
-  ctx.fillText(avg.toFixed(1), W / 2 + 220, statY + 120);
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = "600 34px Georgia, serif";
-  ctx.fillText("books read", W / 2 - 220, statY + 180);
-  ctx.fillText("average rating", W / 2 + 220, statY + 180);
-
-  ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.font = "28px Georgia, serif";
-  ctx.fillText("Book Ratings · Wrapped", W / 2, H - 60);
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/png")
-  );
-  if (!blob) throw new Error("Could not render card");
-  const file = new File([blob], `books-wrapped-${year}.png`, { type: "image/png" });
-
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: `${userName}'s ${year} in Books` });
-  } else {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `books-wrapped-${year}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-}
-
 export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const year = new Date().getFullYear();
   const [books, setBooks] = useState<BookDoc[] | null>(null);
@@ -306,7 +188,6 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
   const [readerNames, setReaderNames] = useState<Set<string>>(new Set());
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [slide, setSlide] = useState(0);
-  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     listBooks(userId)
@@ -379,14 +260,104 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     const avgPublic = withPublic.length
       ? withPublic.reduce((s, b) => s + (b.avgRating as number) * 2, 0) / withPublic.length
       : null;
-    const pages = books.reduce((s, b) => s + (parseInt(b.pages, 10) || 0), 0);
+    // Implausible stored counts (sample editions, "10 pages") are ignored.
+    const pages = books.reduce((s, b) => s + (parseInt(plausiblePages(b.pages), 10) || 0), 0);
     const maxRating = Math.max(...rated.map((b) => b.myRating));
     const minRating = Math.min(...rated.map((b) => b.myRating));
     const monthCounts = new Array(12).fill(0);
     for (const b of books) monthCounts[b.dateAdded!.toDate().getMonth()]++;
     const bestMonth = monthCounts.indexOf(Math.max(...monthCounts));
     const byRating = [...rated].sort((a, b) => b.myRating - a.myRating);
+
+    // Ratings 1–10 histogram
+    const ratingCounts = new Array(10).fill(0);
+    for (const b of rated) if (b.myRating >= 1 && b.myRating <= 10) ratingCounts[b.myRating - 1]++;
+
+    // Author countries (free text, normalised)
+    const countryMap = new Map<string, { name: string; flag: string; count: number }>();
+    let countryKnown = 0;
+    for (const b of books) {
+      const c = normaliseCountry(b.authorCountry || "");
+      if (!c) continue;
+      countryKnown++;
+      const e = countryMap.get(c.name) ?? { ...c, count: 0 };
+      e.count++;
+      countryMap.set(c.name, e);
+    }
+    const countries = [...countryMap.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+    // Author gender, in a fixed order so colours follow the category
+    const genderOrder = ["Female", "Male"];
+    const genderMap = new Map<string, number>();
+    for (const b of books) {
+      const g = (b.authorGender || "").trim();
+      if (g) genderMap.set(g, (genderMap.get(g) ?? 0) + 1);
+    }
+    const genders = [...genderMap.entries()]
+      .sort((a, b) => {
+        const ia = genderOrder.indexOf(a[0]), ib = genderOrder.indexOf(b[0]);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a[0].localeCompare(b[0]);
+      })
+      .map(([label, count]) => ({ label, count }));
+    const genderKnown = genders.reduce((n, g) => n + g.count, 0);
+
+    // Extremes: publication year and length
+    const withYear = books
+      .map((b) => ({ b, y: parseInt(b.year, 10) }))
+      .filter((x) => x.y >= 1000)
+      .sort((a, z) => a.y - z.y);
+    const withPages = books
+      .map((b) => ({ b, p: parseInt(plausiblePages(b.pages), 10) }))
+      .filter((x) => x.p > 0)
+      .sort((a, z) => a.p - z.p);
+
+    // Where they heard about books
+    const sourceMap = new Map<string, number>();
+    for (const b of books) {
+      const src = (b.source || "").trim();
+      if (src) sourceMap.set(src, (sourceMap.get(src) ?? 0) + 1);
+    }
+    const sources = [...sourceMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count }));
+    const sourceKnown = sources.reduce((n, x) => n + x.count, 0);
+    // Headline scout: the biggest named source ("Other" is not a scout)
+    const topScout = sources.find((x) => x.label.toLowerCase() !== "other") ?? null;
+
+    // You vs the world (public averages are on a 5-point scale)
+    const vsWorld = rated
+      .filter((b) => b.avgRating != null)
+      .map((b) => ({ b, diff: b.myRating - (b.avgRating as number) * 2 }))
+      .sort((a, z) => z.diff - a.diff);
+    const gem = vsWorld[0] && vsWorld[0].diff >= 1.5 ? vsWorld[0] : null;
+    const hotTake = vsWorld.length && vsWorld[vsWorld.length - 1].diff <= -1.5
+      ? vsWorld[vsWorld.length - 1]
+      : null;
+
+    const languages = [...new Set(
+      books.map((b) => (b.originalLanguage || "").trim()).filter(Boolean)
+    )];
+
     return {
+      monthCounts,
+      ratingCounts,
+      fiction: books.filter((b) => b.type === "Fiction").length,
+      nonFiction: books.filter((b) => b.type === "Non-Fiction").length,
+      countries,
+      countryKnown,
+      genders,
+      genderKnown,
+      oldest: withYear[0] ?? null,
+      newest: withYear[withYear.length - 1] ?? null,
+      yearKnown: withYear.length,
+      shortest: withPages[0] ?? null,
+      longest: withPages[withPages.length - 1] ?? null,
+      sources,
+      sourceKnown,
+      topScout,
+      gem,
+      hotTake,
+      languages,
       count: books.length,
       pages,
       avgMine,
@@ -394,6 +365,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       highest: rated.filter((b) => b.myRating === maxRating).slice(0, 3),
       lowest: rated.filter((b) => b.myRating === minRating).slice(0, 3),
       top3: byRating.slice(0, 3),
+      top5: byRating.slice(0, 5),
       cried: books.filter((b) => b.cried).length,
       translated: books.filter((b) => b.language && b.language !== "English").length,
       bestMonth,
@@ -403,7 +375,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         books,
         new Set([...readerNames, ...books.flatMap((b) => [...authorTokens(b.authors)])])
       ),
-      pagesKnown: books.filter((b) => parseInt(b.pages, 10) > 0).length,
+      pagesKnown: books.filter((b) => plausiblePages(b.pages)).length,
       withCovers: books.filter((b) => b.cover),
     };
   }, [books, readerNames]);
@@ -425,6 +397,10 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           criedCount: stats.cried,
           translatedCount: stats.translated,
           busiestMonth: MONTHS[stats.bestMonth],
+          fiction: stats.fiction,
+          nonFiction: stats.nonFiction,
+          authorCountries: stats.countries.map((c) => c.name).join(", "),
+          topBookSource: stats.topScout?.label ?? "",
         },
       }),
     })
@@ -438,6 +414,9 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     if (!stats) return [];
     const maxCloud = stats.cloud[0]?.count ?? 1;
     const fanBooks = stats.withCovers.length >= 3 ? stats.withCovers : books ?? [];
+    // The chart runs to the current month (all twelve when Wrapped opens in December).
+    const monthsSoFar = Math.max(stats.bestMonth + 1, new Date().getMonth() + 1);
+    const withPagesEnough = stats.pagesKnown >= 3;
     const s: React.ReactNode[] = [];
 
     s.push(
@@ -472,6 +451,12 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
             {" paperbacks' worth."}
           </p>
         )}
+        {stats.fiction + stats.nonFiction > 0 && (
+          <p className="text-white/70 text-sm mt-2">
+            <span className="text-white font-bold">{stats.fiction}</span> fiction ·{" "}
+            <span className="text-white font-bold">{stats.nonFiction}</span> non-fiction
+          </p>
+        )}
       </div>
     );
 
@@ -487,6 +472,14 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <p className="text-white/70">
           <span className="text-white font-bold">{stats.bestMonthCount}</span> book{stats.bestMonthCount === 1 ? "" : "s"} finished. What a month.
         </p>
+        <div className="mt-6 w-full">
+          <Columns
+            values={stats.monthCounts.slice(0, monthsSoFar)}
+            labels={MONTHS.slice(0, monthsSoFar).map((m) => m[0])}
+            highlight={new Set([stats.bestMonth])}
+            unit=" books"
+          />
+        </div>
       </div>
     );
 
@@ -505,6 +498,15 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
                 : "perfectly in sync 🤝"}
           </p>
         )}
+        <div className="mt-6 w-full">
+          <p className="text-white/50 text-xs mb-1">How you scored the year</p>
+          <Columns
+            values={stats.ratingCounts}
+            labels={stats.ratingCounts.map((_, i) => String(i + 1))}
+            highlight={new Set([stats.ratingCounts.indexOf(Math.max(...stats.ratingCounts))])}
+            unit=" books"
+          />
+        </div>
       </div>
     );
 
@@ -521,6 +523,33 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <FeaturedBooks books={stats.lowest} />
       </div>
     );
+
+    if (stats.gem || stats.hotTake) {
+      s.push(
+        <div key="vsworld" className="w-full flex flex-col gap-6">
+          {[
+            stats.gem && { tag: "💎 Hidden gem", pick: stats.gem, line: "You loved it more than the world did" },
+            stats.hotTake && { tag: "🌶️ Hot take", pick: stats.hotTake, line: "The world liked it a lot more than you did" },
+          ]
+            .filter((x): x is { tag: string; pick: { b: BookDoc; diff: number }; line: string } => !!x)
+            .map(({ tag, pick, line }, i) => (
+              <div key={tag} className="flex items-center gap-4 text-left max-w-sm mx-auto wrapped-pop" style={{ animationDelay: `${i * 150}ms` }}>
+                <Cover book={pick.b} className="w-16 h-24 rounded shadow-xl shrink-0" />
+                <div>
+                  <p className="text-amber-300 font-bold text-sm">{tag}</p>
+                  <p className="text-white font-semibold leading-tight">{pick.b.title}</p>
+                  <p className="text-white/60 text-xs mb-1">{line}</p>
+                  <p className="text-white text-sm">
+                    You <span className="font-extrabold">{pick.b.myRating}</span>
+                    <span className="text-white/50"> · </span>
+                    World <span className="font-extrabold">{((pick.b.avgRating as number) * 2).toFixed(1)}</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+        </div>
+      );
+    }
 
     for (const other of others) {
       const rows = [...other.shared].sort(
@@ -586,6 +615,99 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
+    // Only show a data slide when enough books carry the field to say something.
+    const noteOf = (known: number, what: string) => (
+      <p className="text-white/40 text-[11px] mt-5">
+        Based on the {known} of {stats.count} books where you noted {what}.
+      </p>
+    );
+
+    if (stats.countryKnown >= 4 && stats.countries.length >= 2) {
+      const shown = stats.countries.slice(0, 8);
+      s.push(
+        <div key="countries" className="w-full">
+          <p className="text-white/70 mb-2">🗺️ Your passport stamps</p>
+          <p className="text-white text-2xl font-extrabold mb-5">
+            Authors from <span className="text-amber-300">{stats.countries.length}</span> countries
+          </p>
+          <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto text-left">
+            {shown.map((c, i) => (
+              <div key={c.name} className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 wrapped-pop" style={{ animationDelay: `${i * 70}ms` }}>
+                <span className="text-2xl leading-none">{c.flag}</span>
+                <span className="text-white text-sm truncate flex-1">{c.name}</span>
+                <span className="text-white font-bold text-sm tabular-nums">{c.count}</span>
+              </div>
+            ))}
+          </div>
+          {stats.countries.length > shown.length && (
+            <p className="text-white/50 text-xs mt-2">…and {stats.countries.length - shown.length} more</p>
+          )}
+          {noteOf(stats.countryKnown, "the author's country")}
+        </div>
+      );
+    }
+
+    if (stats.genderKnown >= 5 && stats.genders.length >= 2) {
+      s.push(
+        <div key="gender" className="w-full">
+          <p className="text-white/70 mb-5">✍️ Who wrote your year</p>
+          <Donut slices={stats.genders} />
+          {noteOf(stats.genderKnown, "the author's gender")}
+        </div>
+      );
+    }
+
+    {
+      type Tile = { label: string; value: string; b: BookDoc };
+      const tiles: Tile[] = [];
+      if (stats.yearKnown >= 3 && stats.oldest && stats.newest && stats.oldest.y !== stats.newest.y) {
+        tiles.push({ label: "Oldest", value: String(stats.oldest.y), b: stats.oldest.b });
+        tiles.push({ label: "Newest", value: String(stats.newest.y), b: stats.newest.b });
+      }
+      if (withPagesEnough && stats.shortest && stats.longest && stats.shortest.p !== stats.longest.p) {
+        tiles.push({ label: "Longest", value: `${stats.longest.p} pp`, b: stats.longest.b });
+        tiles.push({ label: "Shortest", value: `${stats.shortest.p} pp`, b: stats.shortest.b });
+      }
+      if (tiles.length) {
+        const span = stats.oldest && stats.newest ? stats.newest.y - stats.oldest.y : 0;
+        s.push(
+          <div key="extremes" className="w-full">
+            <p className="text-white/70 mb-5">📏 Your year at the extremes</p>
+            <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+              {tiles.map((t, i) => (
+                <div key={t.label} className="bg-white/10 rounded-xl p-3 flex gap-3 items-center text-left wrapped-pop" style={{ animationDelay: `${i * 110}ms` }}>
+                  <Cover book={t.b} className="w-10 h-[60px] rounded shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-white/50 text-[11px] uppercase tracking-wide">{t.label}</p>
+                    <p className="text-amber-300 font-extrabold text-lg leading-tight">{t.value}</p>
+                    <p className="text-white text-xs truncate">{t.b.title}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {span >= 20 && tiles.some((t) => t.label === "Oldest") && (
+              <p className="text-white/70 text-sm mt-5">
+                Your books span <span className="text-white font-bold">{span}</span> years of writing.
+              </p>
+            )}
+          </div>
+        );
+      }
+    }
+
+    if (stats.sourceKnown >= 5 && stats.sources.length >= 2 && stats.topScout) {
+      s.push(
+        <div key="scout" className="w-full">
+          <p className="text-white/70 mb-2">🔎 Your top book scout</p>
+          <p className="text-5xl font-extrabold text-amber-300 mb-1">{stats.topScout.label}</p>
+          <p className="text-white/70 mb-6">
+            found <span className="text-white font-bold">{stats.topScout.count}</span> of your books this year
+          </p>
+          <RankedBars rows={stats.sources.slice(0, 5)} />
+        </div>
+      );
+    }
+
     if (stats.cloud.length >= 8) {
       s.push(
         <div key="cloud">
@@ -627,6 +749,13 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
               <p className="text-white">
                 You crossed languages <span className="font-extrabold text-amber-300 text-2xl">{stats.translated}</span> time{stats.translated === 1 ? "" : "s"} with works in translation.
               </p>
+              {stats.languages.length > 0 && (
+                <p className="text-white/70 text-sm mt-2">
+                  Translated from {stats.languages.slice(0, -1).join(", ")}
+                  {stats.languages.length > 1 ? " and " : ""}
+                  {stats.languages[stats.languages.length - 1]}.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -662,34 +791,90 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
-    s.push(
-      <div key="outro">
-        <CoverFan books={stats.top3} />
-        <h2 className="text-2xl font-extrabold text-white mb-2">Here&apos;s to {year + 1}</h2>
-        <p className="text-white/70 mb-6">May your to-read pile never shrink, {userName}!</p>
-        <button
-          type="button"
-          disabled={sharing}
-          onClick={async (e) => {
-            e.stopPropagation();
-            setSharing(true);
-            try {
-              await shareCard(userName, year, stats.count, stats.avgMine, stats.top3);
-            } catch {
-              // user cancelled the share sheet, or rendering failed — no-op
-            } finally {
-              setSharing(false);
-            }
-          }}
-          className="relative z-20 px-6 py-3 rounded-full bg-amber-300 text-gray-900 font-bold text-sm hover:bg-amber-200 disabled:opacity-60 shadow-lg"
-        >
-          {sharing ? "Making your card…" : "📤 Share your year"}
-        </button>
-      </div>
-    );
+    // Final slide: a Spotify-style summary card, sized for a phone screenshot.
+    {
+      const topWords = stats.cloud.slice(0, 5).map((w) => w.word);
+      const second =
+        topWords.length >= 3
+          ? { title: "Top Words", items: topWords }
+          : stats.countries.length >= 2
+            ? { title: "Top Countries", items: stats.countries.slice(0, 5).map((c) => `${c.flag} ${c.name}`) }
+            : null;
+      const tiles: { label: string; value: string }[] = [
+        { label: "Books read", value: String(stats.count) },
+        { label: "Average rating", value: `★ ${stats.avgMine.toFixed(1)}` },
+        stats.pages > 0
+          ? { label: stats.pagesKnown < stats.count ? "Pages (at least)" : "Pages", value: stats.pages.toLocaleString() }
+          : { label: "Fiction", value: `${stats.fiction}/${stats.count}` },
+        stats.topScout
+          ? { label: "Top book scout", value: stats.topScout.label }
+          : { label: "Biggest month", value: MONTHS[stats.bestMonth] },
+      ];
+      s.push(
+        <div key="summary" className="w-full flex flex-col items-center">
+          <div
+            className="relative w-full max-w-[330px] rounded-2xl overflow-hidden text-left shadow-2xl ring-1 ring-white/10"
+            style={{ background: "linear-gradient(170deg, #0f0e24 0%, #1c1748 55%, #2a1650 100%)" }}
+          >
+            {/* colour band behind the covers */}
+            <div
+              className="absolute inset-x-0 top-0 h-40"
+              style={{ background: "linear-gradient(135deg, #fcd34d 0%, #f472b6 50%, #7c3aed 100%)", opacity: 0.85 }}
+            />
+            <div className="relative px-5 pt-4 pb-5">
+              <p className="text-[11px] font-extrabold tracking-[0.2em] uppercase text-gray-900/80">
+                {userName}&apos;s {year} in Books
+              </p>
+              <div className="mt-3 mb-1">
+                <CoverFan books={stats.top3} />
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-1">
+                <div className={second ? "" : "col-span-2"}>
+                  <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide mb-1.5">Top Books</p>
+                  <ol className="flex flex-col gap-1">
+                    {stats.top5.map((b, i) => (
+                      <li key={b.id} className="flex gap-1.5 text-white text-[13px] leading-tight">
+                        <span className="text-amber-300 font-extrabold w-3 shrink-0">{i + 1}</span>
+                        <span className="truncate font-semibold">{b.title}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                {second && (
+                  <div>
+                    <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide mb-1.5">{second.title}</p>
+                    <ol className="flex flex-col gap-1">
+                      {second.items.map((w, i) => (
+                        <li key={w} className="flex gap-1.5 text-white text-[13px] leading-tight">
+                          <span className="text-amber-300 font-extrabold w-3 shrink-0">{i + 1}</span>
+                          <span className="truncate font-semibold capitalize">{w}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-5">
+                {tiles.map((t) => (
+                  <div key={t.label}>
+                    <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide">{t.label}</p>
+                    <p className="text-white text-xl font-extrabold leading-tight truncate">{t.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-5 pt-3 border-t border-white/10">
+                <p className="text-white/70 text-xs">Here&apos;s to {year + 1} 📚</p>
+                <p className="text-white/40 text-[10px] font-bold tracking-widest uppercase">BookShelf Wrapped</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-white/50 text-xs mt-4">📸 Screenshot this card to share it</p>
+        </div>
+      );
+    }
 
     return s;
-  }, [stats, facts, favAdded, others, userName, year, books, sharing]);
+  }, [stats, facts, favAdded, others, userName, year, books]);
 
   const next = useCallback(() => {
     setSlide((s) => (s < slides.length - 1 ? s + 1 : s));
@@ -717,6 +902,9 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         @keyframes wrappedPop { from { opacity: 0; transform: translateY(14px) scale(.7); } to { opacity: 1; } }
         .wrapped-slide { animation: wrappedIn .45s ease both; }
         .wrapped-pop { animation: wrappedPop .5s cubic-bezier(.34,1.56,.64,1) both; }
+        @keyframes wrappedGrow { from { transform: scaleX(0); } to { transform: none; } }
+        .wrapped-grow { transform-origin: left; animation: wrappedGrow .6s ease-out both; }
+        @media (prefers-reduced-motion: reduce) { .wrapped-slide, .wrapped-pop, .wrapped-grow { animation: none; } }
       `}</style>
       <div
         className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden select-none"
