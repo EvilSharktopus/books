@@ -46,22 +46,3 @@ export function storableCover(url: string): string {
   if (ol) return `${ol[1]}-L.jpg`;
   return coverUrl(url, "full");
 }
-
-/**
- * Loads a cover as an <img> element for canvas drawing, trying the
- * high-res rendition first and the stored URL if that fails.
- */
-export function loadCoverImage(url: string): Promise<HTMLImageElement> {
-  const attempt = (src: string) =>
-    new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`cover failed: ${src}`));
-      img.src = src;
-    });
-  const upgraded = coverUrl(url, "full");
-  return upgraded === url
-    ? attempt(url)
-    : attempt(upgraded).catch(() => attempt(url));
-}

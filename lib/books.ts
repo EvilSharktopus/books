@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   Timestamp,
 } from "firebase/firestore";
@@ -153,4 +154,20 @@ export async function findBookByTitle(
       (b) => b.title.toLowerCase().replace(/\s+/g, " ").trim() === wanted
     ) ?? null
   );
+}
+
+// A frozen copy of a reader's Wrapped for one year, kept at
+// users/{userId}/wrapped/{year}. Re-saved whenever Wrapped is opened from the
+// app in December, so it ends up holding the end-of-year numbers even if
+// books are edited later.
+export async function saveWrappedSnapshot(
+  userId: string,
+  year: number,
+  snapshot: Record<string, unknown>
+): Promise<void> {
+  await setDoc(doc(getDb(), "users", userId, "wrapped", String(year)), {
+    ...snapshot,
+    year,
+    savedAt: serverTimestamp(),
+  });
 }

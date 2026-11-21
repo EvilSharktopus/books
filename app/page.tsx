@@ -231,7 +231,14 @@ export default function Home() {
       </footer>
 
       {wrappedOpen && user && (
-        <Wrapped userId={user.id} userName={user.name} onClose={() => setWrappedOpen(false)} />
+        <Wrapped
+          userId={user.id}
+          userName={user.name}
+          onClose={() => setWrappedOpen(false)}
+          // Keep a saved copy of the year on the backend (December only, so
+          // test previews earlier in the year don't overwrite it).
+          saveSnapshot={new Date().getMonth() === 11}
+        />
       )}
 
       {user && (

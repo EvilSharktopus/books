@@ -1,15 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookDoc, listBooks, listUsers } from "@/lib/books";
+import { BookDoc, listBooks, listUsers, saveWrappedSnapshot } from "@/lib/books";
+import {
+  BOOK_HEIGHT_M,
+  READING_WPM,
+  WORDS_PER_PAGE,
+  curatedFacts,
+  lengthComparison,
+  literaryTwin,
+  wordsComparison,
+} from "@/lib/wrappedExtras";
 import { placeholderColor } from "./ShelfView";
 import CoverImage from "./CoverImage";
-import { loadCoverImage } from "@/lib/coverUrl";
+import { normaliseCountry } from "@/lib/countries";
+import { authorTokens, plausiblePages } from "@/lib/bookMatch";
+import { Columns, Donut, RankedBars } from "./WrappedCharts";
+import WrappedIntro from "./WrappedIntro";
 
 interface WrappedProps {
   userId: string;
   userName: string;
   onClose: () => void;
+  /** Which year to wrap. Defaults to the current one. */
+  year?: number;
+  /** Save a copy of the year's numbers to the backend once they're computed. */
+  saveSnapshot?: boolean;
 }
 
 interface Fact {
@@ -30,7 +46,7 @@ const MONTHS = [
 // hedges and generic reading vocabulary. Contractions ("didn't") are
 // dropped separately, so they don't need listing here.
 const STOPWORDS = new Set(
-  `the a an and or but if then than that this these those it its was were is are be been being i me my we our you your he she his her they them their of in on at to for with about from as by not no so very just really quite also too do did does done have has had having would could should will can may might must there here what which who whom whose when where why how all any both each few more most other some such only own same once because while during before after above below again further out over under up down off into onto upon within without through throughout until since around across along toward towards book books read reading reread felt feel feels feeling like liked one two three first second last next bit lot lots got get gets getting much many still though although even ever never always often sometimes way ways things thing make makes made making think thought found find end ending story stories writing written write writes author authors characters character plot little good great enjoyed loved love sort kind kinds maybe sure actually mostly normally usually probably definitely certainly especially totally completely slightly somewhat fairly highly truly simply basically pretty rather enough almost already well okay fine overall part parts time times day days year years long short wanted want wants know knew known seem seems seemed keep kept need needs look looked looking said says tell told going goes went come came comes coming take took give gave works work worked working picked pick recommend recommended recommendation idea point reason ones side half whole else another every everything something nothing anything someone everyone people person mind stuff left right turn turned turns follow followed hear heard draw drawn different interesting enjoy`.split(/\s+/)
+  `the a an and or but if then than that this these those it its was were is are be been being i me my we our you your he she his her they them their of in on at to for with about from as by not no so very just really quite also too do did does done have has had having would could should will can may might must there here what which who whom whose when where why how all any both each few more most other some such only own same once because while during before after above below again further out over under up down off into onto upon within without through throughout until since around across along toward towards book books read reading reread felt feel feels feeling like liked one two three first second last next bit lot lots got get gets getting much many still though although even ever never always often sometimes way ways things thing make makes made making think thought found find end ending story stories writing written write writes author authors characters character plot little good great enjoyed loved love sort kind kinds maybe sure actually mostly normally usually probably definitely certainly especially totally completely slightly somewhat fairly highly truly simply basically pretty rather enough almost already well okay fine overall part parts time times day days year years long short wanted want wants know knew known seem seems seemed keep kept need needs look looked looking said says tell told going goes went come came comes coming take took give gave works work worked working picked pick recommend recommended recommendation idea point reason ones side half whole else another every everything something nothing anything someone everyone people person mind stuff left right turn turned turns follow followed hear heard draw drawn different interesting enjoy developed develop`.split(/\s+/)
 );
 
 // Plural/singular pairs that should count as one word in the cloud.
@@ -91,17 +107,6 @@ function normTitle(title: string): string {
     .trim();
 }
 
-function authorTokens(authors: string): Set<string> {
-  return new Set(
-    authors
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .split(/[^a-z]+/)
-      .filter((t) => t.length >= 3)
-  );
-}
-
 /** Same book? Title must match; authors must share a name when both are known
  *  (so "The Strangers" by Vermette ≠ "Strangers" by Burden, but
  *  "Liza Ridzen" = "Lisa Ridzen"). */
@@ -120,7 +125,40 @@ interface SharedRead {
 interface OtherReader {
   name: string;
   shared: SharedRead[];
+  /** Their own year, for the head-to-head slide. */
+  theirs: YearTotals;
 }
+
+interface YearTotals {
+  count: number;
+  pages: number; // estimated: books without a page count get the reader's average
+  avg: number;
+  cried: number;
+}
+
+/** Total pages, with the reader's own average standing in for books that lack a count. */
+function estimatePages(books: BookDoc[]): { pages: number; known: number } {
+  const counts = books.map((b) => parseInt(plausiblePages(b.pages), 10) || 0);
+  const known = counts.filter((n) => n > 0);
+  if (known.length === 0) return { pages: 0, known: 0 };
+  const sum = known.reduce((a, b) => a + b, 0);
+  return {
+    pages: Math.round(sum + (sum / known.length) * (books.length - known.length)),
+    known: known.length,
+  };
+}
+
+function yearTotals(books: BookDoc[]): YearTotals {
+  const rated = books.filter((b) => b.myRating > 0);
+  return {
+    count: books.length,
+    pages: estimatePages(books).pages,
+    avg: rated.length ? rated.reduce((s, b) => s + b.myRating, 0) / rated.length : 0,
+    cried: books.filter((b) => b.cried).length,
+  };
+}
+
+const DAY_MS = 86_400_000;
 
 /** Cover image, or a colored placeholder block with the title. */
 function Cover({
@@ -189,124 +227,20 @@ function FeaturedBooks({ books }: { books: BookDoc[] }) {
   );
 }
 
-/** Draw and share a summary card image. */
-async function shareCard(
-  userName: string,
-  year: number,
-  count: number,
-  avg: number,
-  topBooks: BookDoc[]
-) {
-  const W = 1080, H = 1350;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-
-  const grad = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  grad.addColorStop(0, "#1e1b4b");
-  grad.addColorStop(0.55, "#312e81");
-  grad.addColorStop(1, "#4c1d95");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = "#fcd34d";
-  ctx.font = "bold 46px Georgia, serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`📚 ${year} in Books`, W / 2, 110);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 64px Georgia, serif";
-  ctx.fillText(userName, W / 2, 195);
-
-  // Covers (drawn with CORS; fall back to colored blocks if blocked)
-  const cw = 240, ch = 360, gap = 40;
-  const startX = (W - (cw * 3 + gap * 2)) / 2;
-  const coverY = 280;
-  for (let i = 0; i < Math.min(3, topBooks.length); i++) {
-    const b = topBooks[i];
-    const x = startX + i * (cw + gap);
-    let drawn = false;
-    if (b.cover) {
-      try {
-        const img = await loadCoverImage(b.cover);
-        ctx.drawImage(img, x, coverY, cw, ch);
-        drawn = true;
-      } catch {
-        drawn = false;
-      }
-    }
-    if (!drawn) {
-      ctx.fillStyle = placeholderColor(b.title);
-      ctx.fillRect(x, coverY, cw, ch);
-      ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.font = "bold 26px Georgia, serif";
-      const words = b.title.split(" ");
-      let line = "", ty = coverY + 80;
-      for (const word of words) {
-        if ((line + " " + word).trim().length > 14) {
-          ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
-          line = word;
-          ty += 36;
-        } else line = `${line} ${word}`;
-      }
-      if (line.trim()) ctx.fillText(line.trim(), x + cw / 2, ty, cw - 24);
-    }
-    // rating badge
-    ctx.fillStyle = "#fcd34d";
-    ctx.beginPath();
-    ctx.arc(x + cw - 14, coverY + 14, 38, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#1e1b4b";
-    ctx.font = "bold 38px Georgia, serif";
-    ctx.fillText(String(b.myRating), x + cw - 14, coverY + 28);
-  }
-
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.font = "600 30px Georgia, serif";
-  ctx.fillText("Top rated this year", W / 2, coverY + ch + 64);
-
-  // Stats
-  const statY = 880;
-  ctx.fillStyle = "#fcd34d";
-  ctx.font = "bold 130px Georgia, serif";
-  ctx.fillText(String(count), W / 2 - 220, statY + 120);
-  ctx.fillText(avg.toFixed(1), W / 2 + 220, statY + 120);
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = "600 34px Georgia, serif";
-  ctx.fillText("books read", W / 2 - 220, statY + 180);
-  ctx.fillText("average rating", W / 2 + 220, statY + 180);
-
-  ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.font = "28px Georgia, serif";
-  ctx.fillText("Book Ratings · Wrapped", W / 2, H - 60);
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/png")
+export default function Wrapped({ userId, userName, onClose, year: yearProp, saveSnapshot }: WrappedProps) {
+  const year = yearProp ?? new Date().getFullYear();
+  const [copied, setCopied] = useState(false);
+  // The book-opening intro plays once per open, unless the viewer prefers reduced motion.
+  const [introDone, setIntroDone] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
-  if (!blob) throw new Error("Could not render card");
-  const file = new File([blob], `books-wrapped-${year}.png`, { type: "image/png" });
-
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: `${userName}'s ${year} in Books` });
-  } else {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `books-wrapped-${year}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-}
-
-export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
-  const year = new Date().getFullYear();
+  const finishIntro = useCallback(() => setIntroDone(true), []);
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [favAdded, setFavAdded] = useState<BookDoc[]>([]);
   const [others, setOthers] = useState<OtherReader[]>([]);
   const [readerNames, setReaderNames] = useState<Set<string>>(new Set());
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [slide, setSlide] = useState(0);
-  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     listBooks(userId)
@@ -359,7 +293,8 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           const t = theirBooks.find((tb) => !tb.favoriteOnly && sameBook(m, tb));
           if (t && (inYear(m) || inYear(t))) shared.push({ mine: m, theirs: t });
         }
-        if (shared.length) result.push({ name: user.name, shared });
+        const theirs = yearTotals(theirBooks.filter((b) => !b.favoriteOnly && inYear(b)));
+        if (shared.length || theirs.count) result.push({ name: user.name, shared, theirs });
       }
       result.sort((a, b) => b.shared.length - a.shared.length);
       setOthers(result);
@@ -379,14 +314,144 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     const avgPublic = withPublic.length
       ? withPublic.reduce((s, b) => s + (b.avgRating as number) * 2, 0) / withPublic.length
       : null;
-    const pages = books.reduce((s, b) => s + (parseInt(b.pages, 10) || 0), 0);
+    // Implausible stored counts (sample editions, "10 pages") are ignored.
+    const pages = books.reduce((s, b) => s + (parseInt(plausiblePages(b.pages), 10) || 0), 0);
     const maxRating = Math.max(...rated.map((b) => b.myRating));
     const minRating = Math.min(...rated.map((b) => b.myRating));
     const monthCounts = new Array(12).fill(0);
     for (const b of books) monthCounts[b.dateAdded!.toDate().getMonth()]++;
     const bestMonth = monthCounts.indexOf(Math.max(...monthCounts));
     const byRating = [...rated].sort((a, b) => b.myRating - a.myRating);
+
+    // Ratings 1–10 histogram
+    const ratingCounts = new Array(10).fill(0);
+    for (const b of rated) if (b.myRating >= 1 && b.myRating <= 10) ratingCounts[b.myRating - 1]++;
+
+    // Author countries (free text, normalised)
+    const countryMap = new Map<string, { name: string; flag: string; count: number }>();
+    let countryKnown = 0;
+    for (const b of books) {
+      const c = normaliseCountry(b.authorCountry || "");
+      if (!c) continue;
+      countryKnown++;
+      const e = countryMap.get(c.name) ?? { ...c, count: 0 };
+      e.count++;
+      countryMap.set(c.name, e);
+    }
+    const countries = [...countryMap.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+    // Author gender, in a fixed order so colours follow the category
+    const genderOrder = ["Female", "Male"];
+    const genderMap = new Map<string, number>();
+    for (const b of books) {
+      const g = (b.authorGender || "").trim();
+      if (g) genderMap.set(g, (genderMap.get(g) ?? 0) + 1);
+    }
+    const genders = [...genderMap.entries()]
+      .sort((a, b) => {
+        const ia = genderOrder.indexOf(a[0]), ib = genderOrder.indexOf(b[0]);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a[0].localeCompare(b[0]);
+      })
+      .map(([label, count]) => ({ label, count }));
+    const genderKnown = genders.reduce((n, g) => n + g.count, 0);
+
+    // Extremes: publication year and length
+    const withYear = books
+      .map((b) => ({ b, y: parseInt(b.year, 10) }))
+      .filter((x) => x.y >= 1000)
+      .sort((a, z) => a.y - z.y);
+    const withPages = books
+      .map((b) => ({ b, p: parseInt(plausiblePages(b.pages), 10) }))
+      .filter((x) => x.p > 0)
+      .sort((a, z) => a.p - z.p);
+
+    // Where they heard about books
+    const sourceMap = new Map<string, number>();
+    for (const b of books) {
+      const src = (b.source || "").trim();
+      if (src) sourceMap.set(src, (sourceMap.get(src) ?? 0) + 1);
+    }
+    const sources = [...sourceMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ label, count }));
+    const sourceKnown = sources.reduce((n, x) => n + x.count, 0);
+    // Headline scout: the biggest named source ("Other" is not a scout)
+    const topScout = sources.find((x) => x.label.toLowerCase() !== "other") ?? null;
+
+    // You vs the world (public averages are on a 5-point scale)
+    const vsWorld = rated
+      .filter((b) => b.avgRating != null)
+      .map((b) => ({ b, diff: b.myRating - (b.avgRating as number) * 2 }))
+      .sort((a, z) => z.diff - a.diff);
+    const gem = vsWorld[0] && vsWorld[0].diff >= 1.5 ? vsWorld[0] : null;
+    const hotTake = vsWorld.length && vsWorld[vsWorld.length - 1].diff <= -1.5
+      ? vsWorld[vsWorld.length - 1]
+      : null;
+
+    // Words, reading time, and the books laid end to end
+    const est = estimatePages(books);
+    const words = est.pages * WORDS_PER_PAGE;
+    const lengthM = books.length * BOOK_HEIGHT_M;
+
+    // Rhythm: pace, longest gap, first and last book
+    const byDate = [...books].sort(
+      (a, b) => a.dateAdded!.toMillis() - b.dateAdded!.toMillis()
+    );
+    const now = new Date();
+    const yearEnd = now.getFullYear() === year ? now.getTime() : new Date(year + 1, 0, 1).getTime();
+    const daysElapsed = Math.max(1, (yearEnd - new Date(year, 0, 1).getTime()) / DAY_MS);
+    let gap: { days: number; before: BookDoc; after: BookDoc } | null = null;
+    for (let i = 1; i < byDate.length; i++) {
+      const days = Math.round(
+        (byDate[i].dateAdded!.toMillis() - byDate[i - 1].dateAdded!.toMillis()) / DAY_MS
+      );
+      if (!gap || days > gap.days) gap = { days, before: byDate[i - 1], after: byDate[i] };
+    }
+
+    // Did the ratings drift over the year? First half of the books vs second.
+    const ratedByDate = byDate.filter((b) => b.myRating > 0);
+    const half = Math.floor(ratedByDate.length / 2);
+    const mean = (xs: BookDoc[]) => xs.reduce((s, b) => s + b.myRating, 0) / xs.length;
+    const trend =
+      ratedByDate.length >= 8
+        ? { early: mean(ratedByDate.slice(0, half)), late: mean(ratedByDate.slice(half)) }
+        : null;
+
+    const languages = [...new Set(
+      books.map((b) => (b.originalLanguage || "").trim()).filter(Boolean)
+    )];
+
     return {
+      estPages: est.pages,
+      pagesAreEstimated: est.known < books.length,
+      words,
+      readingHours: Math.round(words / READING_WPM / 60),
+      lengthM,
+      daysPerBook: daysElapsed / books.length,
+      gap: gap && gap.days >= 14 ? gap : null,
+      firstBook: byDate[0],
+      lastBook: byDate[byDate.length - 1],
+      trend,
+      mine: yearTotals(books),
+      monthCounts,
+      ratingCounts,
+      fiction: books.filter((b) => b.type === "Fiction").length,
+      nonFiction: books.filter((b) => b.type === "Non-Fiction").length,
+      countries,
+      countryKnown,
+      genders,
+      genderKnown,
+      oldest: withYear[0] ?? null,
+      newest: withYear[withYear.length - 1] ?? null,
+      yearKnown: withYear.length,
+      shortest: withPages[0] ?? null,
+      longest: withPages[withPages.length - 1] ?? null,
+      sources,
+      sourceKnown,
+      topScout,
+      gem,
+      hotTake,
+      languages,
       count: books.length,
       pages,
       avgMine,
@@ -394,6 +459,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       highest: rated.filter((b) => b.myRating === maxRating).slice(0, 3),
       lowest: rated.filter((b) => b.myRating === minRating).slice(0, 3),
       top3: byRating.slice(0, 3),
+      top5: byRating.slice(0, 5),
       cried: books.filter((b) => b.cried).length,
       translated: books.filter((b) => b.language && b.language !== "English").length,
       bestMonth,
@@ -403,14 +469,16 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         books,
         new Set([...readerNames, ...books.flatMap((b) => [...authorTokens(b.authors)])])
       ),
-      pagesKnown: books.filter((b) => parseInt(b.pages, 10) > 0).length,
+      pagesKnown: books.filter((b) => plausiblePages(b.pages)).length,
       withCovers: books.filter((b) => b.cover),
     };
-  }, [books, readerNames]);
+  }, [books, readerNames, year]);
 
-  // Fetch Claude-generated fun facts once stats are ready
+  // Fun facts: hand-written ones when they exist for this reader and year,
+  // otherwise Claude-generated (which needs ANTHROPIC_API_KEY on the server).
+  const handWritten = useMemo(() => curatedFacts(userId, year), [userId, year]);
   useEffect(() => {
-    if (!books || !stats) return;
+    if (!books || !stats || handWritten) return;
     fetch("/api/wrapped", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -425,6 +493,10 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           criedCount: stats.cried,
           translatedCount: stats.translated,
           busiestMonth: MONTHS[stats.bestMonth],
+          fiction: stats.fiction,
+          nonFiction: stats.nonFiction,
+          authorCountries: stats.countries.map((c) => c.name).join(", "),
+          topBookSource: stats.topScout?.label ?? "",
         },
       }),
     })
@@ -438,6 +510,11 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
     if (!stats) return [];
     const maxCloud = stats.cloud[0]?.count ?? 1;
     const fanBooks = stats.withCovers.length >= 3 ? stats.withCovers : books ?? [];
+    // The chart runs to the current month (all twelve when Wrapped opens in December).
+    const monthsSoFar =
+      year < new Date().getFullYear() ? 12 : Math.max(stats.bestMonth + 1, new Date().getMonth() + 1);
+    const twin = literaryTwin(userId, year);
+    const withPagesEnough = stats.pagesKnown >= 3;
     const s: React.ReactNode[] = [];
 
     s.push(
@@ -472,6 +549,86 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
             {" paperbacks' worth."}
           </p>
         )}
+        {stats.fiction + stats.nonFiction > 0 && (
+          <p className="text-white/70 text-sm mt-2">
+            <span className="text-white font-bold">{stats.fiction}</span> fiction ·{" "}
+            <span className="text-white font-bold">{stats.nonFiction}</span> non-fiction
+          </p>
+        )}
+      </div>
+    );
+
+    if (stats.words > 0) {
+      const wordsLike = wordsComparison(stats.words);
+      const lengthLike = lengthComparison(stats.lengthM);
+      const millions = stats.words / 1_000_000;
+      s.push(
+        <div key="numbers" className="w-full flex flex-col gap-7">
+          <div className="wrapped-pop">
+            <p className="text-white/70 mb-1">You read about</p>
+            <p className="text-5xl font-extrabold text-amber-300">
+              {millions >= 1 ? `${millions.toFixed(1)} million` : Math.round(stats.words / 1000) + ",000"}
+            </p>
+            <p className="text-xl text-white font-semibold">words</p>
+            {wordsLike && <p className="text-white/70 text-sm mt-1">That&apos;s {wordsLike}.</p>}
+          </div>
+          <div className="wrapped-pop" style={{ animationDelay: "150ms" }}>
+            <p className="text-4xl mb-1">⏳</p>
+            <p className="text-white">
+              Roughly <span className="font-extrabold text-amber-300 text-2xl">{stats.readingHours}</span> hours of reading
+              {stats.readingHours >= 48 && (
+                <span className="text-white/70"> — {(stats.readingHours / 24).toFixed(1)} days without sleep.</span>
+              )}
+            </p>
+          </div>
+          <div className="wrapped-pop" style={{ animationDelay: "300ms" }}>
+            <p className="text-4xl mb-1">📏</p>
+            <p className="text-white">
+              Stood end to end, your books stretch{" "}
+              <span className="font-extrabold text-amber-300 text-2xl">{stats.lengthM.toFixed(1)} m</span>
+              {lengthLike && <span className="text-white/70"> — {lengthLike}.</span>}
+            </p>
+          </div>
+          <p className="text-white/40 text-[11px]">
+            {WORDS_PER_PAGE} words a page, {READING_WPM} words a minute
+            {stats.pagesAreEstimated ? ", with average length filled in for books missing a page count" : ""}.
+          </p>
+        </div>
+      );
+    }
+
+    s.push(
+      <div key="rhythm" className="w-full">
+        <p className="text-white/70 mb-1">🥁 Your reading rhythm</p>
+        <p className="text-white text-2xl font-extrabold mb-6">
+          A book every{" "}
+          <span className="text-amber-300">
+            {stats.daysPerBook < 10 ? stats.daysPerBook.toFixed(1) : Math.round(stats.daysPerBook)}
+          </span>{" "}
+          days
+        </p>
+        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+          {[
+            { label: "First book of the year", b: stats.firstBook },
+            { label: "Most recent", b: stats.lastBook },
+          ].map(({ label, b }, i) => (
+            <div key={label} className="bg-white/10 rounded-xl p-3 flex flex-col items-center wrapped-pop" style={{ animationDelay: `${i * 130}ms` }}>
+              <p className="text-white/50 text-[11px] uppercase tracking-wide mb-2">{label}</p>
+              <Cover book={b} className="w-16 h-24 rounded shadow-xl" />
+              <p className="text-white text-xs font-semibold mt-2 line-clamp-2 leading-tight">{b.title}</p>
+              <p className="text-white/50 text-[11px]">
+                {b.dateAdded!.toDate().toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </p>
+            </div>
+          ))}
+        </div>
+        {stats.gap && (
+          <p className="text-white/70 text-sm mt-5">
+            Longest dry spell: <span className="text-white font-bold">{stats.gap.days} days</span>, between{" "}
+            <span className="text-white">{stats.gap.before.title}</span> and{" "}
+            <span className="text-white">{stats.gap.after.title}</span>.
+          </p>
+        )}
       </div>
     );
 
@@ -487,6 +644,14 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         <p className="text-white/70">
           <span className="text-white font-bold">{stats.bestMonthCount}</span> book{stats.bestMonthCount === 1 ? "" : "s"} finished. What a month.
         </p>
+        <div className="mt-6 w-full">
+          <Columns
+            values={stats.monthCounts.slice(0, monthsSoFar)}
+            labels={MONTHS.slice(0, monthsSoFar).map((m) => m[0])}
+            highlight={new Set([stats.bestMonth])}
+            unit=" books"
+          />
+        </div>
       </div>
     );
 
@@ -505,6 +670,22 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
                 : "perfectly in sync 🤝"}
           </p>
         )}
+        {stats.trend && Math.abs(stats.trend.late - stats.trend.early) >= 0.3 && (
+          <p className="text-white/70 text-sm mt-3">
+            You got {stats.trend.late < stats.trend.early ? "tougher" : "kinder"} as the year went on:{" "}
+            <span className="text-white font-bold">{stats.trend.early.toFixed(1)}</span> in the first half,{" "}
+            <span className="text-white font-bold">{stats.trend.late.toFixed(1)}</span> in the second.
+          </p>
+        )}
+        <div className="mt-6 w-full">
+          <p className="text-white/50 text-xs mb-1">How you scored the year</p>
+          <Columns
+            values={stats.ratingCounts}
+            labels={stats.ratingCounts.map((_, i) => String(i + 1))}
+            highlight={new Set([stats.ratingCounts.indexOf(Math.max(...stats.ratingCounts))])}
+            unit=" books"
+          />
+        </div>
       </div>
     );
 
@@ -522,7 +703,75 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       </div>
     );
 
+    if (stats.gem || stats.hotTake) {
+      s.push(
+        <div key="vsworld" className="w-full flex flex-col gap-6">
+          {[
+            stats.gem && { tag: "💎 Hidden gem", pick: stats.gem, line: "You loved it more than the world did" },
+            stats.hotTake && { tag: "🌶️ Hot take", pick: stats.hotTake, line: "The world liked it a lot more than you did" },
+          ]
+            .filter((x): x is { tag: string; pick: { b: BookDoc; diff: number }; line: string } => !!x)
+            .map(({ tag, pick, line }, i) => (
+              <div key={tag} className="flex items-center gap-4 text-left max-w-sm mx-auto wrapped-pop" style={{ animationDelay: `${i * 150}ms` }}>
+                <Cover book={pick.b} className="w-16 h-24 rounded shadow-xl shrink-0" />
+                <div>
+                  <p className="text-amber-300 font-bold text-sm">{tag}</p>
+                  <p className="text-white font-semibold leading-tight">{pick.b.title}</p>
+                  <p className="text-white/60 text-xs mb-1">{line}</p>
+                  <p className="text-white text-sm">
+                    You <span className="font-extrabold">{pick.b.myRating}</span>
+                    <span className="text-white/50"> · </span>
+                    World <span className="font-extrabold">{((pick.b.avgRating as number) * 2).toFixed(1)}</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+        </div>
+      );
+    }
+
     for (const other of others) {
+      if (other.theirs.count > 0) {
+        const m = stats.mine, t = other.theirs;
+        const rowsH: { label: string; mine: string; theirs: string; win: -1 | 0 | 1 }[] = [
+          { label: "Books", mine: String(m.count), theirs: String(t.count), win: Math.sign(m.count - t.count) as -1 | 0 | 1 },
+          { label: "Pages (est.)", mine: m.pages.toLocaleString(), theirs: t.pages.toLocaleString(), win: Math.sign(m.pages - t.pages) as -1 | 0 | 1 },
+          { label: "Average rating", mine: m.avg.toFixed(1), theirs: t.avg.toFixed(1), win: 0 },
+          { label: "Books that made you cry", mine: String(m.cried), theirs: String(t.cried), win: Math.sign(m.cried - t.cried) as -1 | 0 | 1 },
+        ];
+        s.push(
+          <div key={`h2h-${other.name}`} className="w-full">
+            <p className="text-white/70 mb-5">🥊 {userName} vs {other.name}</p>
+            <div className="max-w-sm mx-auto">
+              <div className="grid grid-cols-2 gap-x-6 items-baseline mb-2">
+                <p className="text-amber-300 font-extrabold text-right">{userName}</p>
+                <p className="text-sky-300 font-extrabold text-left">{other.name}</p>
+              </div>
+              {rowsH.map((r, i) => (
+                <div key={r.label} className="wrapped-pop py-2 border-t border-white/10" style={{ animationDelay: `${i * 110}ms` }}>
+                  <p className="text-white/50 text-[11px] uppercase tracking-wide">{r.label}</p>
+                  <div className="grid grid-cols-2 gap-x-6">
+                    <p className={`text-right text-2xl tabular-nums ${r.win > 0 ? "text-white font-extrabold" : "text-white/70 font-semibold"}`}>
+                      {r.mine}{r.win > 0 && " 👑"}
+                    </p>
+                    <p className={`text-left text-2xl tabular-nums ${r.win < 0 ? "text-white font-extrabold" : "text-white/70 font-semibold"}`}>
+                      {r.win < 0 && "👑 "}{r.theirs}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <p className="text-white/60 text-sm mt-3">
+                {m.avg > t.avg + 0.2
+                  ? `${userName} is the softer touch.`
+                  : t.avg > m.avg + 0.2
+                    ? `${other.name} is the softer touch; ${userName} is the tougher critic.`
+                    : "Equally hard to impress."}
+              </p>
+            </div>
+          </div>
+        );
+      }
+      if (other.shared.length === 0) continue;
       const rows = [...other.shared].sort(
         (a, b) =>
           Math.abs(b.mine.myRating - b.theirs.myRating) -
@@ -586,6 +835,99 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
+    // Only show a data slide when enough books carry the field to say something.
+    const noteOf = (known: number, what: string) => (
+      <p className="text-white/40 text-[11px] mt-5">
+        Based on the {known} of {stats.count} books where you noted {what}.
+      </p>
+    );
+
+    if (stats.countryKnown >= 4 && stats.countries.length >= 2) {
+      const shown = stats.countries.slice(0, 8);
+      s.push(
+        <div key="countries" className="w-full">
+          <p className="text-white/70 mb-2">🗺️ Your passport stamps</p>
+          <p className="text-white text-2xl font-extrabold mb-5">
+            Authors from <span className="text-amber-300">{stats.countries.length}</span> countries
+          </p>
+          <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto text-left">
+            {shown.map((c, i) => (
+              <div key={c.name} className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 wrapped-pop" style={{ animationDelay: `${i * 70}ms` }}>
+                <span className="text-2xl leading-none">{c.flag}</span>
+                <span className="text-white text-sm truncate flex-1">{c.name}</span>
+                <span className="text-white font-bold text-sm tabular-nums">{c.count}</span>
+              </div>
+            ))}
+          </div>
+          {stats.countries.length > shown.length && (
+            <p className="text-white/50 text-xs mt-2">…and {stats.countries.length - shown.length} more</p>
+          )}
+          {noteOf(stats.countryKnown, "the author's country")}
+        </div>
+      );
+    }
+
+    if (stats.genderKnown >= 5 && stats.genders.length >= 2) {
+      s.push(
+        <div key="gender" className="w-full">
+          <p className="text-white/70 mb-5">✍️ Who wrote your year</p>
+          <Donut slices={stats.genders} />
+          {noteOf(stats.genderKnown, "the author's gender")}
+        </div>
+      );
+    }
+
+    {
+      type Tile = { label: string; value: string; b: BookDoc };
+      const tiles: Tile[] = [];
+      if (stats.yearKnown >= 3 && stats.oldest && stats.newest && stats.oldest.y !== stats.newest.y) {
+        tiles.push({ label: "Oldest", value: String(stats.oldest.y), b: stats.oldest.b });
+        tiles.push({ label: "Newest", value: String(stats.newest.y), b: stats.newest.b });
+      }
+      if (withPagesEnough && stats.shortest && stats.longest && stats.shortest.p !== stats.longest.p) {
+        tiles.push({ label: "Longest", value: `${stats.longest.p} pp`, b: stats.longest.b });
+        tiles.push({ label: "Shortest", value: `${stats.shortest.p} pp`, b: stats.shortest.b });
+      }
+      if (tiles.length) {
+        const span = stats.oldest && stats.newest ? stats.newest.y - stats.oldest.y : 0;
+        s.push(
+          <div key="extremes" className="w-full">
+            <p className="text-white/70 mb-5">📏 Your year at the extremes</p>
+            <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+              {tiles.map((t, i) => (
+                <div key={t.label} className="bg-white/10 rounded-xl p-3 flex gap-3 items-center text-left wrapped-pop" style={{ animationDelay: `${i * 110}ms` }}>
+                  <Cover book={t.b} className="w-10 h-[60px] rounded shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-white/50 text-[11px] uppercase tracking-wide">{t.label}</p>
+                    <p className="text-amber-300 font-extrabold text-lg leading-tight">{t.value}</p>
+                    <p className="text-white text-xs truncate">{t.b.title}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {span >= 20 && tiles.some((t) => t.label === "Oldest") && (
+              <p className="text-white/70 text-sm mt-5">
+                Your books span <span className="text-white font-bold">{span}</span> years of writing.
+              </p>
+            )}
+          </div>
+        );
+      }
+    }
+
+    if (stats.sourceKnown >= 5 && stats.sources.length >= 2 && stats.topScout) {
+      s.push(
+        <div key="scout" className="w-full">
+          <p className="text-white/70 mb-2">🔎 Your top book scout</p>
+          <p className="text-5xl font-extrabold text-amber-300 mb-1">{stats.topScout.label}</p>
+          <p className="text-white/70 mb-6">
+            found <span className="text-white font-bold">{stats.topScout.count}</span> of your books this year
+          </p>
+          <RankedBars rows={stats.sources.slice(0, 5)} />
+        </div>
+      );
+    }
+
     if (stats.cloud.length >= 8) {
       s.push(
         <div key="cloud">
@@ -627,6 +969,13 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
               <p className="text-white">
                 You crossed languages <span className="font-extrabold text-amber-300 text-2xl">{stats.translated}</span> time{stats.translated === 1 ? "" : "s"} with works in translation.
               </p>
+              {stats.languages.length > 0 && (
+                <p className="text-white/70 text-sm mt-2">
+                  Translated from {stats.languages.slice(0, -1).join(", ")}
+                  {stats.languages.length > 1 ? " and " : ""}
+                  {stats.languages[stats.languages.length - 1]}.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -646,12 +995,13 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
-    if (facts && facts.length > 0) {
+    const shownFacts = handWritten ?? facts;
+    if (shownFacts && shownFacts.length > 0) {
       s.push(
         <div key="facts" className="w-full">
           <p className="text-white/70 mb-4">✨ Some things you might not know...</p>
           <div className="flex flex-col gap-3 text-left">
-            {facts.slice(0, 4).map((f, i) => (
+            {shownFacts.slice(0, 4).map((f, i) => (
               <div key={i} className="bg-white/10 rounded-xl px-4 py-3 wrapped-pop" style={{ animationDelay: `${i * 120}ms` }}>
                 <p className="text-white font-bold text-sm mb-1">{f.emoji} {f.title}</p>
                 <p className="text-white/80 text-sm">{f.text}</p>
@@ -662,34 +1012,166 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
       );
     }
 
-    s.push(
-      <div key="outro">
-        <CoverFan books={stats.top3} />
-        <h2 className="text-2xl font-extrabold text-white mb-2">Here&apos;s to {year + 1}</h2>
-        <p className="text-white/70 mb-6">May your to-read pile never shrink, {userName}!</p>
-        <button
-          type="button"
-          disabled={sharing}
-          onClick={async (e) => {
-            e.stopPropagation();
-            setSharing(true);
-            try {
-              await shareCard(userName, year, stats.count, stats.avgMine, stats.top3);
-            } catch {
-              // user cancelled the share sheet, or rendering failed — no-op
-            } finally {
-              setSharing(false);
-            }
-          }}
-          className="relative z-20 px-6 py-3 rounded-full bg-amber-300 text-gray-900 font-bold text-sm hover:bg-amber-200 disabled:opacity-60 shadow-lg"
-        >
-          {sharing ? "Making your card…" : "📤 Share your year"}
-        </button>
-      </div>
-    );
+    if (twin) {
+      s.push(
+        <div key="twin" className="w-full flex flex-col gap-5 max-w-sm mx-auto">
+          <p className="text-white/70">🪞 Your literary twin</p>
+          <div className="bg-white/10 rounded-2xl p-4 wrapped-pop">
+            <p className="text-white/50 text-[11px] uppercase tracking-wide">If you were a fictional character</p>
+            <p className="text-amber-300 text-3xl font-extrabold leading-tight mt-1">{twin.character.name}</p>
+            <p className="text-white/60 text-xs mb-2">{twin.character.from}</p>
+            <p className="text-white/85 text-sm">{twin.character.because}</p>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-4 wrapped-pop" style={{ animationDelay: "180ms" }}>
+            <p className="text-white/50 text-[11px] uppercase tracking-wide">If your taste were one author</p>
+            <p className="text-amber-300 text-3xl font-extrabold leading-tight mt-1">{twin.author.name}</p>
+            <p className="text-white/85 text-sm mt-2">{twin.author.because}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Final slide: a Spotify-style summary card, sized for a phone screenshot.
+    {
+      const topWords = stats.cloud.slice(0, 5).map((w) => w.word);
+      const second =
+        topWords.length >= 3
+          ? { title: "Top Words", items: topWords }
+          : stats.countries.length >= 2
+            ? { title: "Top Countries", items: stats.countries.slice(0, 5).map((c) => `${c.flag} ${c.name}`) }
+            : null;
+      const tiles: { label: string; value: string }[] = [
+        { label: "Books read", value: String(stats.count) },
+        { label: "Average rating", value: `★ ${stats.avgMine.toFixed(1)}` },
+        stats.words > 0
+          ? { label: "Words read", value: `${(stats.words / 1_000_000).toFixed(1)} million` }
+          : { label: "Fiction", value: `${stats.fiction}/${stats.count}` },
+        stats.topScout
+          ? { label: "Top book scout", value: stats.topScout.label }
+          : { label: "Biggest month", value: MONTHS[stats.bestMonth] },
+      ];
+      s.push(
+        <div key="summary" className="w-full flex flex-col items-center">
+          <div
+            className="relative w-full max-w-[330px] rounded-2xl overflow-hidden text-left shadow-2xl ring-1 ring-white/10"
+            style={{ background: "linear-gradient(170deg, #0f0e24 0%, #1c1748 55%, #2a1650 100%)" }}
+          >
+            {/* colour band behind the covers */}
+            <div
+              className="absolute inset-x-0 top-0 h-40"
+              style={{ background: "linear-gradient(135deg, #fcd34d 0%, #f472b6 50%, #7c3aed 100%)", opacity: 0.85 }}
+            />
+            <div className="relative px-5 pt-4 pb-5">
+              <p className="text-[11px] font-extrabold tracking-[0.2em] uppercase text-gray-900/80">
+                {userName}&apos;s {year} in Books
+              </p>
+              <div className="mt-3 mb-1">
+                <CoverFan books={stats.top3} />
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-1">
+                <div className={second ? "" : "col-span-2"}>
+                  <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide mb-1.5">Top Books</p>
+                  <ol className="flex flex-col gap-1">
+                    {stats.top5.map((b, i) => (
+                      <li key={b.id} className="flex gap-1.5 text-white text-[13px] leading-tight">
+                        <span className="text-amber-300 font-extrabold w-3 shrink-0">{i + 1}</span>
+                        <span className="truncate font-semibold">{b.title}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                {second && (
+                  <div>
+                    <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide mb-1.5">{second.title}</p>
+                    <ol className="flex flex-col gap-1">
+                      {second.items.map((w, i) => (
+                        <li key={w} className="flex gap-1.5 text-white text-[13px] leading-tight">
+                          <span className="text-amber-300 font-extrabold w-3 shrink-0">{i + 1}</span>
+                          <span className="truncate font-semibold capitalize">{w}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-5">
+                {tiles.map((t) => (
+                  <div key={t.label}>
+                    <p className="text-white/50 text-[11px] font-bold uppercase tracking-wide">{t.label}</p>
+                    <p className="text-white text-xl font-extrabold leading-tight truncate">{t.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-5 pt-3 border-t border-white/10">
+                <p className="text-white/70 text-xs">Here&apos;s to {year + 1} 📚</p>
+                <p className="text-white/40 text-[10px] font-bold tracking-widest uppercase">BookShelf Wrapped</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-white/50 text-xs mt-4">📸 Screenshot this card to share it</p>
+          <button
+            type="button"
+            onClick={async (e) => {
+              e.stopPropagation();
+              const url = `${window.location.origin}/wrapped/${userId}?year=${year}`;
+              try {
+                await navigator.clipboard.writeText(url);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2500);
+              } catch {
+                window.prompt("Copy this link:", url);
+              }
+            }}
+            className="pointer-events-auto mt-3 px-5 py-2.5 rounded-full bg-amber-300 text-gray-900 font-bold text-sm hover:bg-amber-200 shadow-lg"
+          >
+            {copied ? "✓ Link copied" : "🔗 Copy link to the whole Wrapped"}
+          </button>
+        </div>
+      );
+    }
 
     return s;
-  }, [stats, facts, favAdded, others, userName, year, books, sharing]);
+  }, [stats, facts, handWritten, favAdded, others, userName, userId, year, books, copied]);
+
+  // Keep a copy of the year on the backend (see saveWrappedSnapshot).
+  useEffect(() => {
+    if (!saveSnapshot || !stats) return;
+    const twin = literaryTwin(userId, year);
+    saveWrappedSnapshot(userId, year, {
+      userName,
+      booksRead: stats.count,
+      fiction: stats.fiction,
+      nonFiction: stats.nonFiction,
+      estimatedPages: stats.estPages,
+      estimatedWords: stats.words,
+      readingHours: stats.readingHours,
+      endToEndMetres: Math.round(stats.lengthM * 10) / 10,
+      averageRating: Math.round(stats.avgMine * 10) / 10,
+      publicAverageRating: stats.avgPublic == null ? null : Math.round(stats.avgPublic * 10) / 10,
+      daysPerBook: Math.round(stats.daysPerBook * 10) / 10,
+      busiestMonth: MONTHS[stats.bestMonth],
+      monthCounts: stats.monthCounts,
+      ratingCounts: stats.ratingCounts,
+      cried: stats.cried,
+      translated: stats.translated,
+      topBooks: stats.top5.map((b) => ({ title: b.title, authors: b.authors, rating: b.myRating })),
+      lowestBooks: stats.lowest.map((b) => ({ title: b.title, authors: b.authors, rating: b.myRating })),
+      topWords: stats.cloud.slice(0, 10).map((w) => w.word),
+      countries: stats.countries.map((c) => ({ name: c.name, count: c.count })),
+      authorGenders: stats.genders,
+      sources: stats.sources,
+      oldest: stats.oldest ? { title: stats.oldest.b.title, year: stats.oldest.y } : null,
+      newest: stats.newest ? { title: stats.newest.b.title, year: stats.newest.y } : null,
+      firstBook: stats.firstBook.title,
+      lastBook: stats.lastBook.title,
+      sharedWith: others.map((o) => ({
+        name: o.name,
+        books: o.shared.map((r) => ({ title: r.mine.title, mine: r.mine.myRating, theirs: r.theirs.myRating })),
+      })),
+      literaryTwin: twin,
+      shareLink: `/wrapped/${userId}?year=${year}`,
+    }).catch((err) => console.warn("[wrapped] could not save snapshot:", err));
+  }, [saveSnapshot, stats, others, userId, userName, year]);
 
   const next = useCallback(() => {
     setSlide((s) => (s < slides.length - 1 ? s + 1 : s));
@@ -717,6 +1199,9 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
         @keyframes wrappedPop { from { opacity: 0; transform: translateY(14px) scale(.7); } to { opacity: 1; } }
         .wrapped-slide { animation: wrappedIn .45s ease both; }
         .wrapped-pop { animation: wrappedPop .5s cubic-bezier(.34,1.56,.64,1) both; }
+        @keyframes wrappedGrow { from { transform: scaleX(0); } to { transform: none; } }
+        .wrapped-grow { transform-origin: left; animation: wrappedGrow .6s ease-out both; }
+        @media (prefers-reduced-motion: reduce) { .wrapped-slide, .wrapped-pop, .wrapped-grow { animation: none; } }
       `}</style>
       <div
         className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden select-none"
@@ -732,6 +1217,8 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
 
         {loading ? (
           <div className="h-96 flex items-center justify-center text-white/70">Wrapping up your year…</div>
+        ) : !empty && !introDone ? (
+          <WrappedIntro name={userName} year={year} onDone={finishIntro} />
         ) : empty ? (
           <div className="h-96 flex flex-col items-center justify-center gap-3 px-8 text-center">
             <p className="text-5xl">📖</p>
@@ -739,7 +1226,9 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           </div>
         ) : (
           <div className="relative w-full min-h-96 px-8 py-14 flex flex-col items-center justify-center text-center">
-            <div key={slide} className="wrapped-slide w-full flex flex-col items-center">
+            {/* Above the tap zones but click-through, so taps still turn the
+                page while real buttons inside a slide stay clickable. */}
+            <div key={slide} className="wrapped-slide relative z-20 pointer-events-none w-full flex flex-col items-center">
               {slides[slide]}
             </div>
             {/* Tap zones: left third goes back, right two-thirds go forward */}
@@ -760,7 +1249,7 @@ export default function Wrapped({ userId, userName, onClose }: WrappedProps) {
           </div>
         )}
 
-        {!loading && !empty && (
+        {!loading && !empty && introDone && (
           <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-1.5 z-20">
             {slides.map((_, i) => (
               <button

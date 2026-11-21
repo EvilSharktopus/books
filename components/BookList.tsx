@@ -319,7 +319,7 @@ export default function BookList({ userId, userName }: BookListProps) {
         <p className="text-xs text-gray-400">
           {coverProgress.finished
             ? `Lookup finished: filled in details for ${coverProgress.found} of ${coverProgress.total} books.`
-            : `Looking up missing covers and page counts… ${coverProgress.done}/${coverProgress.total} (${coverProgress.found} filled)`}
+            : `Looking up missing covers, page counts and years… ${coverProgress.done}/${coverProgress.total} (${coverProgress.found} filled)`}
           {coverProgress.lastError && ` — last error: ${coverProgress.lastError}`}
         </p>
       )}
