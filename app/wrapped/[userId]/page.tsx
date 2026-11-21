@@ -27,6 +27,9 @@ function SharedWrapped() {
   const year = asked >= 2000 && asked <= 2100 ? asked : new Date().getFullYear();
   const [name, setName] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // A failed lookup (database unreachable or refusing reads) is not the same
+  // as a bad link, and shouldn't be reported as one.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const usable = Boolean(userId) && isFirebaseConfigured;
   const missing = !usable || notFound;
 
@@ -39,7 +42,10 @@ function SharedWrapped() {
         if (u) setName(u.name);
         else setNotFound(true);
       })
-      .catch(() => !cancelled && setNotFound(true));
+      .catch((err) => {
+        console.error("[wrapped] Failed to load reader:", err);
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Unknown error");
+      });
     return () => {
       cancelled = true;
     };
@@ -47,7 +53,16 @@ function SharedWrapped() {
 
   return (
     <main className="min-h-screen bg-[#191932] flex items-center justify-center p-6 text-center">
-      {missing ? (
+      {loadError ? (
+        <div>
+          <p className="text-5xl mb-3">🔌</p>
+          <p className="text-white mb-1">Couldn&apos;t reach the book database just now.</p>
+          <p className="text-white/50 text-sm mb-4">{loadError}</p>
+          <button onClick={() => window.location.reload()} className="text-amber-300 underline underline-offset-2">
+            Try again
+          </button>
+        </div>
+      ) : missing ? (
         <div>
           <p className="text-5xl mb-3">📖</p>
           <p className="text-white mb-4">This Wrapped link doesn&apos;t point to a reader.</p>
