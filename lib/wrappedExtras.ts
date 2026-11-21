@@ -48,6 +48,73 @@ export function literaryTwin(userId: string, year: number): LiteraryTwin | null 
   return TWINS[userId]?.[year] ?? null;
 }
 
+// --- Fun facts --------------------------------------------------------------
+// Also hand-written. When a reader has an entry here, Wrapped shows it and
+// never calls the /api/wrapped route, so no Anthropic API key is needed.
+
+export interface FunFact {
+  emoji: string;
+  title: string;
+  text: string;
+}
+
+const FACTS: Record<string, Record<number, FunFact[]>> = {
+  // Hilary
+  NGW4m1yqzKabcvCcoRlk: {
+    2026: [
+      {
+        emoji: "🏆",
+        title: "You read the Booker podium",
+        text: "Flesh won the 2025 Booker Prize and Flashlight was on the same shortlist. You gave the winner an 8 and the shortlisted one a 7, so you and the judges agree.",
+      },
+      {
+        emoji: "📻",
+        title: "CBC is your book whisperer",
+        text: "More than half your books this year came from CBC, including four of your six perfect 10s.",
+      },
+      {
+        emoji: "🐦",
+        title: "Narrated by a magpie",
+        text: "The Axeman's Carnival is told by Tama, a talking magpie, and won New Zealand's top fiction prize in 2023. You gave the bird a 9.",
+      },
+      {
+        emoji: "✍️",
+        title: "Novelists telling the truth",
+        text: "Two of your 10s were nonfiction by novelists. Omar El Akkad's won the 2025 National Book Award, and Yiyun Li's memoir won a Pulitzer.",
+      },
+    ],
+  },
+  // Maddy
+  zWDsS93GsnDkSbcSlDAv: {
+    2026: [
+      {
+        emoji: "🏅",
+        title: "Four Nobel laureates",
+        text: "Faulkner (1949), Laxness (1955), Ernaux (2022) and Krasznahorkai (2025) were all on your shelf. The newest laureate got your highest mark: a 9 for Herscht 07769.",
+      },
+      {
+        emoji: "🌍",
+        title: "Nine languages deep",
+        text: "Your books were first written in Hungarian, Icelandic, German, French, Italian, Greek, Chinese, Spanish and English.",
+      },
+      {
+        emoji: "🧐",
+        title: "Unmoved by Pulitzers",
+        text: "The Night Watchman and A Visit from the Goon Squad both won the Pulitzer Prize for Fiction. You gave each a 7.",
+      },
+      {
+        emoji: "💍",
+        title: "The 1890s called",
+        text: "Effi Briest and The Awakening were written within a few years of each other, on different continents, about women boxed in by marriage. You gave both an 8.",
+      },
+    ],
+  },
+};
+
+export function curatedFacts(userId: string, year: number): FunFact[] | null {
+  return FACTS[userId]?.[year] ?? null;
+}
+
 // --- Fun comparisons -------------------------------------------------------
 
 export const WORDS_PER_PAGE = 275; // typical trade paperback

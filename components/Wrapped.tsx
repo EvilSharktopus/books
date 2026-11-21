@@ -6,6 +6,7 @@ import {
   BOOK_HEIGHT_M,
   READING_WPM,
   WORDS_PER_PAGE,
+  curatedFacts,
   lengthComparison,
   literaryTwin,
   wordsComparison,
@@ -15,6 +16,7 @@ import CoverImage from "./CoverImage";
 import { normaliseCountry } from "@/lib/countries";
 import { authorTokens, plausiblePages } from "@/lib/bookMatch";
 import { Columns, Donut, RankedBars } from "./WrappedCharts";
+import WrappedIntro from "./WrappedIntro";
 
 interface WrappedProps {
   userId: string;
@@ -228,6 +230,11 @@ function FeaturedBooks({ books }: { books: BookDoc[] }) {
 export default function Wrapped({ userId, userName, onClose, year: yearProp, saveSnapshot }: WrappedProps) {
   const year = yearProp ?? new Date().getFullYear();
   const [copied, setCopied] = useState(false);
+  // The book-opening intro plays once per open, unless the viewer prefers reduced motion.
+  const [introDone, setIntroDone] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+  const finishIntro = useCallback(() => setIntroDone(true), []);
   const [books, setBooks] = useState<BookDoc[] | null>(null);
   const [favAdded, setFavAdded] = useState<BookDoc[]>([]);
   const [others, setOthers] = useState<OtherReader[]>([]);
@@ -467,9 +474,11 @@ export default function Wrapped({ userId, userName, onClose, year: yearProp, sav
     };
   }, [books, readerNames, year]);
 
-  // Fetch Claude-generated fun facts once stats are ready
+  // Fun facts: hand-written ones when they exist for this reader and year,
+  // otherwise Claude-generated (which needs ANTHROPIC_API_KEY on the server).
+  const handWritten = useMemo(() => curatedFacts(userId, year), [userId, year]);
   useEffect(() => {
-    if (!books || !stats) return;
+    if (!books || !stats || handWritten) return;
     fetch("/api/wrapped", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -986,12 +995,13 @@ export default function Wrapped({ userId, userName, onClose, year: yearProp, sav
       );
     }
 
-    if (facts && facts.length > 0) {
+    const shownFacts = handWritten ?? facts;
+    if (shownFacts && shownFacts.length > 0) {
       s.push(
         <div key="facts" className="w-full">
           <p className="text-white/70 mb-4">✨ Some things you might not know...</p>
           <div className="flex flex-col gap-3 text-left">
-            {facts.slice(0, 4).map((f, i) => (
+            {shownFacts.slice(0, 4).map((f, i) => (
               <div key={i} className="bg-white/10 rounded-xl px-4 py-3 wrapped-pop" style={{ animationDelay: `${i * 120}ms` }}>
                 <p className="text-white font-bold text-sm mb-1">{f.emoji} {f.title}</p>
                 <p className="text-white/80 text-sm">{f.text}</p>
@@ -1121,7 +1131,7 @@ export default function Wrapped({ userId, userName, onClose, year: yearProp, sav
     }
 
     return s;
-  }, [stats, facts, favAdded, others, userName, userId, year, books, copied]);
+  }, [stats, facts, handWritten, favAdded, others, userName, userId, year, books, copied]);
 
   // Keep a copy of the year on the backend (see saveWrappedSnapshot).
   useEffect(() => {
@@ -1207,6 +1217,8 @@ export default function Wrapped({ userId, userName, onClose, year: yearProp, sav
 
         {loading ? (
           <div className="h-96 flex items-center justify-center text-white/70">Wrapping up your year…</div>
+        ) : !empty && !introDone ? (
+          <WrappedIntro name={userName} year={year} onDone={finishIntro} />
         ) : empty ? (
           <div className="h-96 flex flex-col items-center justify-center gap-3 px-8 text-center">
             <p className="text-5xl">📖</p>
@@ -1237,7 +1249,7 @@ export default function Wrapped({ userId, userName, onClose, year: yearProp, sav
           </div>
         )}
 
-        {!loading && !empty && (
+        {!loading && !empty && introDone && (
           <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-1.5 z-20">
             {slides.map((_, i) => (
               <button
